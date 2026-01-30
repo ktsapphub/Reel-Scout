@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
+import HistoryPage from "@/pages/HistoryPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -44,6 +45,21 @@ function App() {
             element={
               token ? (
                 <DashboardPage
+                  token={token}
+                  userEmail={userEmail}
+                  onLogout={handleLogout}
+                  backendUrl={BACKEND_URL}
+                />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              token ? (
+                <HistoryPage
                   token={token}
                   userEmail={userEmail}
                   onLogout={handleLogout}

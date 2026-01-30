@@ -678,6 +678,37 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const hasUploadedSelected = Array.from(selectedIds).some(id => uploadedReelIds.has(id));
   const allSelectedUploaded = selectedIds.size > 0 && Array.from(selectedIds).every(id => uploadedReelIds.has(id));
 
+  // Load cached search from URL param
+  useEffect(() => {
+    const loadParam = searchParams.get("load");
+    if (loadParam) {
+      loadCachedSearch(loadParam);
+      // Clear the URL param
+      setSearchParams({});
+    }
+  }, [searchParams]);
+
+  const loadCachedSearch = async (cacheKey) => {
+    setSearching(true);
+    setMessage("");
+    setResults([]);
+    setSelectedIds(new Set());
+    setUploadedReelIds(new Set());
+    setCurrentPage(1);
+    
+    try {
+      const response = await api.get(`/search-history/${encodeURIComponent(cacheKey)}`);
+      const { results: cachedResults, total, cached_at } = response.data;
+      
+      setResults(cachedResults || []);
+      setSearching(false);
+      toast.success(`Loaded ${total} cached results from ${new Date(cached_at).toLocaleDateString()}`);
+    } catch (error) {
+      setSearching(false);
+      toast.error("Failed to load cached search");
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);

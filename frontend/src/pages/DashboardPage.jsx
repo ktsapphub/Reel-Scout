@@ -1238,12 +1238,31 @@ travelandleisure
                       )}
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-slate-700 font-medium mb-2 block">Date Filter</Label>
-                    <Button type="button" variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
-                      <Clock className="w-4 h-4 mr-1" />Most Recent
-                    </Button>
-                    <p className="text-xs text-slate-500 mt-1">Retrieves the most recent reels up to your selected max results</p>
+                  
+                  {/* Advanced Filters */}
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                    <div>
+                      <Label className="text-slate-700 font-medium text-sm mb-2 block">Posts Newer Than</Label>
+                      <Input 
+                        type="date" 
+                        value={onlyPostsNewerThan} 
+                        onChange={(e) => setOnlyPostsNewerThan(e.target.value)}
+                        className="h-9 border-slate-200 text-sm"
+                        data-testid="date-filter-input"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Leave empty for all dates</p>
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-medium text-sm mb-2 block">Include Tagged Posts</Label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Checkbox 
+                          checked={includeTaggedPosts} 
+                          onCheckedChange={setIncludeTaggedPosts}
+                          data-testid="include-tagged-checkbox"
+                        />
+                        <span className="text-sm text-slate-600">Include posts where user is tagged</span>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
 

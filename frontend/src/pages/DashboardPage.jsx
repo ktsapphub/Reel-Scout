@@ -910,6 +910,13 @@ travelandleisure
       const validUsernames = usernames.map((u) => u.trim().replace(/^@/, "")).filter((u) => u);
       if (validUsernames.length === 0) { toast.error("Please enter at least one username"); return; }
       payload.usernames = validUsernames;
+      // Add advanced filters for username search
+      if (onlyPostsNewerThan) {
+        payload.only_posts_newer_than = onlyPostsNewerThan;
+      }
+      if (includeTaggedPosts) {
+        payload.include_tagged_posts = true;
+      }
     } else if (searchType === "url") {
       const urls = urlInput.split("\n").map((u) => u.trim()).filter((u) => u);
       if (urls.length === 0) { toast.error("Please enter at least one URL"); return; }

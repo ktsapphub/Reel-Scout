@@ -184,8 +184,235 @@ def generate_content_slug(transcript: str) -> str:
     slug = re.sub(r'\s+', '-', slug.strip())
     return slug[:40] if slug else "reel"
 
+class StartSearchResponse(BaseModel):
+    run_id: str
+    status: str
+    message: str = ""
+
+class SearchStatusResponse(BaseModel):
+    status: str
+    progress: int = 0
+    estimated_seconds_remaining: int = 0
+    results: List[ReelResult] = []
+    total: int = 0
+    message: str = ""
+
+# Store active runs
+active_runs: Dict[str, Dict[str, Any]] = {}
+
+@api_router.post("/reels/search/start", response_model=StartSearchResponse)
+async def start_search(request: SearchRequest, user_email: str = Depends(get_current_user)):
+    if not APIFY_TOKEN:
+        raise HTTPException(status_code=500, detail="Apify token not configured")
+    
+    # Build Apify input
+    apify_input = {
+        "resultsLimit": request.max_results,
+        "skipPinnedPosts": True,
+        "includeSharesCount": False,
+        "includeTranscript": True,
+        "includeDownloadedVideo": True
+    }
+    
+    if request.search_type == "username":
+        if not request.usernames or len(request.usernames) == 0:
+            raise HTTPException(status_code=400, detail="At least one username required")
+        apify_input["username"] = request.usernames
+    elif request.search_type == "url":
+        return StartSearchResponse(
+            run_id="",
+            status="NOT_SUPPORTED",
+            message="Current Apify actor does not support direct URL mode. Use Username or Hashtag, or switch actors."
+        )
+    elif request.search_type == "hashtag":
+        if not request.hashtag:
+            raise HTTPException(status_code=400, detail="Hashtag required")
+        # For now, hashtag also uses username search with hashtag as username prefix
+        return StartSearchResponse(
+            run_id="",
+            status="NOT_SUPPORTED",
+            message="Hashtag mode requires a hashtag-capable actor. Use Username mode or add a second Apify actor for hashtags."
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid search type")
+    
+    # Start Apify actor
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            run_response = await client.post(
+                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs?token={APIFY_TOKEN}",
+                json=apify_input,
+                headers={"Content-Type": "application/json"}
+            )
+            run_response.raise_for_status()
+            run_data = run_response.json()
+            run_id = run_data["data"]["id"]
+            
+            # Store run info
+            active_runs[run_id] = {
+                "user_email": user_email,
+                "started_at": datetime.now(timezone.utc),
+                "max_results": request.max_results,
+                "search_type": request.search_type
+            }
+            
+            logger.info(f"Started Apify run: {run_id}")
+            
+            await log_audit("search_started", user_email, {
+                "run_id": run_id,
+                "search_type": request.search_type,
+                "usernames": request.usernames,
+                "max_results": request.max_results
+            })
+            
+            return StartSearchResponse(run_id=run_id, status="RUNNING")
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Apify API error: {e}")
+            raise HTTPException(status_code=500, detail=f"Apify API error: {str(e)}")
+
+@api_router.get("/reels/search/status/{run_id}", response_model=SearchStatusResponse)
+async def get_search_status(run_id: str, user_email: str = Depends(get_current_user)):
+    if not APIFY_TOKEN:
+        raise HTTPException(status_code=500, detail="Apify token not configured")
+    
+    run_info = active_runs.get(run_id, {})
+    started_at = run_info.get("started_at", datetime.now(timezone.utc))
+    max_results = run_info.get("max_results", 25)
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            status_response = await client.get(
+                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs/{run_id}?token={APIFY_TOKEN}"
+            )
+            status_data = status_response.json()
+            status = status_data["data"]["status"]
+            
+            # Calculate progress and ETA
+            elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+            # Estimate based on typical run times (roughly 2-3 seconds per result)
+            estimated_total = max_results * 2.5
+            progress = min(95, int((elapsed / estimated_total) * 100)) if estimated_total > 0 else 0
+            estimated_remaining = max(0, int(estimated_total - elapsed))
+            
+            if status in ["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"]:
+                progress = 100 if status == "SUCCEEDED" else progress
+                
+                if status == "SUCCEEDED":
+                    # Get results
+                    dataset_id = status_data["data"]["defaultDatasetId"]
+                    dataset_response = await client.get(
+                        f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}"
+                    )
+                    dataset_response.raise_for_status()
+                    items = dataset_response.json()
+                    
+                    # Process results
+                    results = await process_apify_results(items, user_email)
+                    
+                    # Cleanup
+                    if run_id in active_runs:
+                        del active_runs[run_id]
+                    
+                    return SearchStatusResponse(
+                        status=status,
+                        progress=100,
+                        estimated_seconds_remaining=0,
+                        results=results,
+                        total=len(results)
+                    )
+                else:
+                    if run_id in active_runs:
+                        del active_runs[run_id]
+                    return SearchStatusResponse(
+                        status=status,
+                        progress=progress,
+                        message=f"Search {status.lower()}"
+                    )
+            
+            return SearchStatusResponse(
+                status=status,
+                progress=progress,
+                estimated_seconds_remaining=estimated_remaining
+            )
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Apify API error: {e}")
+            raise HTTPException(status_code=500, detail=f"Apify API error: {str(e)}")
+
+@api_router.post("/reels/search/stop/{run_id}")
+async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
+    if not APIFY_TOKEN:
+        raise HTTPException(status_code=500, detail="Apify token not configured")
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            abort_response = await client.post(
+                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs/{run_id}/abort?token={APIFY_TOKEN}"
+            )
+            
+            if run_id in active_runs:
+                del active_runs[run_id]
+            
+            await log_audit("search_stopped", user_email, {"run_id": run_id})
+            
+            return {"status": "ABORTED", "message": "Search stopped successfully"}
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Apify abort error: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to stop search: {str(e)}")
+
+async def process_apify_results(items: List[Dict], user_email: str) -> List[ReelResult]:
+    """Process Apify results into ReelResult objects"""
+    results = []
+    seen_ids = set()
+    
+    # Get previously saved reel IDs for de-duplication
+    saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
+    saved_urls = {r["reel_url"] for r in saved_reels}
+    
+    for item in items:
+        # Only video reels
+        if item.get("type") != "Video" and item.get("videoUrl") is None:
+            continue
+        
+        # Duration filter (<= 120 seconds)
+        duration = item.get("videoDuration", 0) or 0
+        if duration > 120:
+            continue
+        
+        # De-duplicate
+        reel_url = item.get("url", "")
+        reel_id = extract_reel_id(reel_url)
+        if reel_id in seen_ids or reel_url in saved_urls:
+            continue
+        seen_ids.add(reel_id)
+        
+        # Extract music info
+        music_info = item.get("musicInfo", {}) or {}
+        
+        # Map to our schema
+        reel = ReelResult(
+            owner_username=item.get("ownerUsername", ""),
+            owner_full_name=item.get("ownerFullName", ""),
+            reel_url=reel_url,
+            downloaded_video_url=item.get("videoUrl", "") or item.get("downloadedVideoUrl", "") or "",
+            original_video_url=item.get("videoUrl", "") or "",
+            timestamp=item.get("timestamp", ""),
+            video_duration_seconds=duration,
+            video_transcript=item.get("transcript", "") or "",
+            tagged_users=item.get("taggedUsers", []) or [],
+            music_artist=music_info.get("artist_name", "") or "",
+            music_song=music_info.get("song_name", "") or "",
+            music_original_audio=music_info.get("is_original_audio", False) or False
+        )
+        results.append(reel)
+    
+    return results
+
 @api_router.post("/reels/search", response_model=SearchResponse)
 async def search_reels(request: SearchRequest, user_email: str = Depends(get_current_user)):
+    """Legacy synchronous search endpoint"""
     if not APIFY_TOKEN:
         raise HTTPException(status_code=500, detail="Apify token not configured")
     

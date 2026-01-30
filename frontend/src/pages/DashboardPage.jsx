@@ -636,6 +636,8 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
 }
 
 export default function DashboardPage({ token, userEmail, onLogout, backendUrl }) {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchType, setSearchType] = useState("username");
   const [usernames, setUsernames] = useState([""]);
   const [urlInput, setUrlInput] = useState("");

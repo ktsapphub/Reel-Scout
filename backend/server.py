@@ -445,10 +445,10 @@ async def search_reels(request: SearchRequest, user_email: str = Depends(get_cur
         raise HTTPException(status_code=400, detail="Invalid search type")
     
     # Call Apify actor
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as http_client:
         try:
             # Start the actor run
-            run_response = await client.post(
+            run_response = await http_client.post(
                 f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs?token={APIFY_TOKEN}",
                 json=apify_input,
                 headers={"Content-Type": "application/json"}
@@ -466,7 +466,7 @@ async def search_reels(request: SearchRequest, user_email: str = Depends(get_cur
             elapsed = 0
             
             while elapsed < max_wait:
-                status_response = await client.get(
+                status_response = await http_client.get(
                     f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs/{run_id}?token={APIFY_TOKEN}"
                 )
                 status_data = status_response.json()
@@ -483,7 +483,7 @@ async def search_reels(request: SearchRequest, user_email: str = Depends(get_cur
             
             # Get dataset results
             dataset_id = status_data["data"]["defaultDatasetId"]
-            dataset_response = await client.get(
+            dataset_response = await http_client.get(
                 f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}"
             )
             dataset_response.raise_for_status()

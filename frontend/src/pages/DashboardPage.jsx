@@ -1371,14 +1371,31 @@ travelandleisure
               </Tabs>
 
               <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">
-                <div className="min-w-[160px]">
+                <div className="min-w-[200px]">
                   <Label className="text-slate-700 font-medium">Max Results</Label>
-                  <Select value={maxResults.toString()} onValueChange={(v) => setMaxResults(parseInt(v))}>
-                    <SelectTrigger className="mt-2 h-10 border-slate-200" data-testid="max-results-select"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {MAX_RESULTS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt.toString()}>{opt} results</SelectItem>))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Select value={MAX_RESULTS_OPTIONS.includes(maxResults) ? maxResults.toString() : "custom"} onValueChange={(v) => {
+                      if (v !== "custom") setMaxResults(parseInt(v));
+                    }}>
+                      <SelectTrigger className="h-10 border-slate-200 w-[120px]" data-testid="max-results-select"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {MAX_RESULTS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt.toString()}>{opt}</SelectItem>))}
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {!MAX_RESULTS_OPTIONS.includes(maxResults) && (
+                      <Input 
+                        type="number" 
+                        min="1" 
+                        max="1000"
+                        value={maxResults} 
+                        onChange={(e) => setMaxResults(Math.max(1, Math.min(1000, parseInt(e.target.value) || 5)))}
+                        className="h-10 w-20 border-slate-200"
+                        data-testid="custom-max-results"
+                      />
+                    )}
+                    <span className="text-xs text-slate-400">results</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">

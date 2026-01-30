@@ -586,6 +586,10 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     # Process results
                     results = await process_apify_results(items, user_email)
                     
+                    # Save to cache for future use
+                    if cache_key and results:
+                        await save_to_cache(cache_key, results)
+                    
                     # Cleanup
                     if run_id in active_runs:
                         del active_runs[run_id]

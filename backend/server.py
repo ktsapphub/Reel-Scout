@@ -411,10 +411,11 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
         
         # Input format based on Apify actor documentation
         # Actor: reGe1ST3OBgYZSsZJ (Instagram Hashtag Scraper)
+        # NOTE: This actor uses "resultsCount" NOT "resultsLimit"
         apify_input = {
             "hashtags": [hashtag],
             "resultsType": "reels",  # Only retrieve reels, not posts/images
-            "resultsLimit": request.max_results
+            "resultsCount": request.max_results  # Correct parameter name for hashtag actor
         }
         logger.info(f"Hashtag search input: {apify_input}")
     else:

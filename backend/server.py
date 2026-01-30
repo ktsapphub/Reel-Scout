@@ -322,6 +322,7 @@ class SearchStatusResponse(BaseModel):
     total: int = 0
     message: str = ""
     error: Optional[ExecutionError] = None
+    items_processed: int = 0  # Number of raw items from Apify being sifted through
 
 # Store active runs
 active_runs: Dict[str, Dict[str, Any]] = {}

@@ -969,6 +969,16 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               </div>
             </div>
             <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/history")}
+                className="border-slate-200 text-slate-600 hover:text-slate-900"
+                data-testid="history-btn"
+              >
+                <History className="w-4 h-4 mr-2" />
+                History
+              </Button>
               <Badge variant="outline" className="text-slate-600 border-slate-200">
                 <User className="w-3 h-3 mr-1" />{userEmail}
               </Badge>

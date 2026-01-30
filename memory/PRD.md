@@ -43,15 +43,20 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - [x] Stop search button and progress indicator
 - [x] Clear Results button
 - [x] Help panel with tooltips and workflow guide
-- [x] **localStorage persistence for results** (persists across page navigation)
+- [x] localStorage persistence for results (persists across page navigation)
+- [x] **CSV Upload for Bulk Usernames** - Import .csv or .txt files with usernames
+- [x] **Enhanced History Page Features**:
+  - Horizontal carousel preview of cached results
+  - Expandable full preview modal with video player
+  - Compare mode to view multiple cached searches side by side
+  - Navigation arrows and "Viewing X of Y" counter
 
 ## Prioritized Backlog
 ### P0 (Critical)
 - [x] All core features implemented ✅
-- [x] Search results persist when navigating between pages ✅
 
 ### P1 (Important)
-- [ ] CSV import for bulk username search
+- [x] CSV import for bulk username search ✅
 - [ ] Date range picker filter (dependent on Apify actor support)
 - [ ] Stop Search button UI integration with backend endpoint
 
@@ -72,8 +77,8 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 │   └── src/
 │       ├── App.js (Router: Login, Dashboard, History)
 │       └── pages/
-│           ├── DashboardPage.jsx (Main search UI + localStorage persistence)
-│           ├── HistoryPage.jsx (Cached searches list)
+│           ├── DashboardPage.jsx (Main search UI + CSV upload + localStorage)
+│           ├── HistoryPage.jsx (Enhanced with carousel, expand, compare)
 │           └── LoginPage.jsx
 ```
 
@@ -88,11 +93,40 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - `GET /api/search-history` - List cached searches
 - `GET /api/search-history/{cache_key}` - Load specific cached search
 
+## New Features (Jan 30, 2026)
+
+### CSV Upload for Bulk Usernames
+- Located in Username search tab with "Import CSV" link
+- Accepts .csv and .txt files
+- Parses usernames from various formats (comma/tab/semicolon separated)
+- Removes duplicates and invalid entries automatically
+- Limits to MAX_USERNAME_FIELDS (10) with warning for excess
+- Shows success toast with count of imported usernames
+
+### Enhanced History Page
+1. **Horizontal Carousel Preview**
+   - Click "Preview" to show inline carousel of cached results
+   - Shows video thumbnails with username and duration
+   - Horizontally scrollable with thin scrollbar
+
+2. **Expanded Preview Modal**
+   - Click "Expand" to open full-screen modal
+   - Full video player on left with playback controls
+   - Horizontal carousel on right for browsing results
+   - "Viewing X of Y" counter with navigation arrows
+   - "Load All Results" button to use in main finder
+
+3. **Compare Mode**
+   - Click "Compare Mode" button to toggle
+   - Select up to 3 cached searches with checkboxes
+   - Opens comparison modal showing all searches side by side
+   - Each search shows its own horizontal carousel
+
 ## Test Credentials
 - User 1: mydatejar@gmail.com / #Test1234
 - User 2: joseph@centurion-pm.com / #Test1234
 
 ## Next Tasks
-1. CSV file upload for bulk usernames
-2. Date range picker integration
-3. Backend code refactoring (split server.py into modules)
+1. Date range picker integration (dependent on Apify support)
+2. Backend code refactoring (split server.py into modules)
+3. Enhanced search progress indicator

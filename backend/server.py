@@ -347,6 +347,12 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
             "includeTranscript": True,
             "includeDownloadedVideo": True
         }
+        # Add advanced filters
+        if request.only_posts_newer_than:
+            apify_input["onlyPostsNewerThan"] = request.only_posts_newer_than
+        if request.include_tagged_posts:
+            apify_input["includeTaggedPosts"] = True
+            
     elif request.search_type == "url":
         if not request.urls or len(request.urls) == 0:
             raise HTTPException(status_code=400, detail="At least one profile URL required")

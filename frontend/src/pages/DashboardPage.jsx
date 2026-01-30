@@ -1278,18 +1278,11 @@ travelandleisure
                 <TabsContent value="hashtag" className="mt-4 space-y-4">
                   <div>
                     <Label className="text-slate-700 font-medium">Hashtag</Label>
-                    <p className="text-sm text-slate-500 mb-2">Enter hashtag with or without #</p>
+                    <p className="text-sm text-slate-500 mb-2">Enter hashtag with or without # — returns reels only</p>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">#</span>
                       <Input placeholder="datenight" value={hashtagInput} onChange={(e) => setHashtagInput(e.target.value)} className="h-10 pl-8 border-slate-200 focus:border-blue-500" data-testid="hashtag-input" />
                     </div>
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 font-medium mb-2 block">Date Filter</Label>
-                    <Button type="button" variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
-                      <Clock className="w-4 h-4 mr-1" />Most Recent
-                    </Button>
-                    <p className="text-xs text-slate-500 mt-1">Retrieves the most recent reels up to your selected max results</p>
                   </div>
                 </TabsContent>
               </Tabs>

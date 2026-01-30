@@ -737,7 +737,9 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
             return SearchStatusResponse(
                 status=status,
                 progress=progress,
-                estimated_seconds_remaining=estimated_remaining
+                estimated_seconds_remaining=estimated_remaining,
+                items_processed=items_processed,
+                message=f"Processing... {items_processed} items collected" if items_processed > 0 else "Searching..."
             )
             
         except httpx.HTTPError as e:

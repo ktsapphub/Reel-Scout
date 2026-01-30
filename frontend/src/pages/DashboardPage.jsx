@@ -722,7 +722,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                       Instagram Username(s)
                     </Label>
                     <span className="text-xs text-slate-400">
-                      {usernames.length}/{MAX_USERNAME_FIELDS} fields
+                      {usernames.length}/{MAX_USERNAME_FIELDS} fields • underscores allowed
                     </span>
                   </div>
                   <div className="space-y-2">

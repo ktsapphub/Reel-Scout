@@ -83,7 +83,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-const MAX_RESULTS_OPTIONS = [10, 25, 50, 100, 250];
+const MAX_RESULTS_OPTIONS = [5, 10, 25, 50, 100, 250];
 const RESULTS_PER_PAGE = 10;
 const MAX_USERNAME_FIELDS = 10;
 

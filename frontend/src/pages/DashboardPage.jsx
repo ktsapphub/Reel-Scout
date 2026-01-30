@@ -651,7 +651,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [includeTaggedPosts, setIncludeTaggedPosts] = useState(false);
   const [onlyPostsNewerThan, setOnlyPostsNewerThan] = useState("");
   
-  const [searching, setSearching] = useState(false);
   const [runId, setRunId] = useState(() => {
     try {
       const saved = localStorage.getItem("ig_reel_finder_runId");

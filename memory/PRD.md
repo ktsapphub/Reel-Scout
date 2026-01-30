@@ -50,6 +50,9 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - Expandable full preview modal with video player
   - Compare mode to view multiple cached searches side by side
   - Navigation arrows and "Viewing X of Y" counter
+- [x] **Advanced Apify Filters** (Username search):
+  - `onlyPostsNewerThan` - Date picker to filter posts by date
+  - `includeTaggedPosts` - Checkbox to include posts where user is tagged
 
 ## Prioritized Backlog
 ### P0 (Critical)

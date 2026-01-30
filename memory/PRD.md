@@ -53,6 +53,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - [x] **Advanced Apify Filters** (Username search):
   - `onlyPostsNewerThan` - Date picker to filter posts by date
   - `includeTaggedPosts` - Checkbox to include posts where user is tagged
+- [x] **Search State Persistence**:
+  - Results persist when navigating between pages (localStorage)
+  - Active search continues running when navigating away
+  - Search progress shown with items processed count
+  - Stop Search retrieves partial results with count
 
 ## Prioritized Backlog
 ### P0 (Critical)

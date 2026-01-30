@@ -77,6 +77,7 @@ import {
   BookOpen,
   ArrowRight,
   FileSpreadsheet,
+  History,
 } from "lucide-react";
 import axios from "axios";
 

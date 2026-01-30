@@ -768,6 +768,69 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     setUsernames(newUsernames);
   };
 
+  const handleCsvUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result;
+      if (typeof text !== "string") return;
+
+      // Parse CSV - handle various formats
+      const lines = text.split(/[\r\n]+/).filter(line => line.trim());
+      const parsedUsernames = [];
+
+      for (const line of lines) {
+        // Split by comma, tab, or semicolon
+        const parts = line.split(/[,;\t]+/);
+        for (const part of parts) {
+          // Clean up the username
+          let username = part.trim()
+            .replace(/^["']|["']$/g, '') // Remove quotes
+            .replace(/^@/, '') // Remove @ prefix
+            .toLowerCase();
+          
+          // Skip empty, headers, or invalid entries
+          if (username && 
+              username !== "username" && 
+              username !== "handle" && 
+              username !== "account" &&
+              !username.includes("http") &&
+              /^[a-zA-Z0-9._]+$/.test(username)) {
+            parsedUsernames.push(username);
+          }
+        }
+      }
+
+      // Remove duplicates
+      const uniqueUsernames = [...new Set(parsedUsernames)];
+
+      if (uniqueUsernames.length === 0) {
+        toast.error("No valid usernames found in CSV");
+        return;
+      }
+
+      // Limit to MAX_USERNAME_FIELDS
+      const limitedUsernames = uniqueUsernames.slice(0, MAX_USERNAME_FIELDS);
+      setUsernames(limitedUsernames);
+      
+      if (uniqueUsernames.length > MAX_USERNAME_FIELDS) {
+        toast.warning(`Imported ${limitedUsernames.length} usernames (max ${MAX_USERNAME_FIELDS}). ${uniqueUsernames.length - MAX_USERNAME_FIELDS} were skipped.`);
+      } else {
+        toast.success(`Imported ${limitedUsernames.length} username${limitedUsernames.length > 1 ? 's' : ''} from CSV`);
+      }
+    };
+
+    reader.onerror = () => {
+      toast.error("Failed to read CSV file");
+    };
+
+    reader.readAsText(file);
+    // Reset file input
+    event.target.value = "";
+  };
+
   const showExecutionResult = (status, message, error = null, resultsCount = 0, searchRunId = null) => {
     setExecutionStatus({ status, message, error, results_count: resultsCount, run_id: searchRunId });
     setShowStatusModal(true);

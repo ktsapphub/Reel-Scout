@@ -314,10 +314,12 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     
     actor_id = APIFY_ACTOR_ID  # Default to username actor
     apify_input = {}
+    cache_key = None
     
     if request.search_type == "username":
         if not request.usernames or len(request.usernames) == 0:
             raise HTTPException(status_code=400, detail="At least one username required")
+        cache_key = generate_cache_key("username", usernames=request.usernames, max_results=request.max_results)
         apify_input = {
             "username": request.usernames,
             "resultsLimit": request.max_results,
@@ -338,6 +340,7 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
         # Use hashtag actor
         actor_id = APIFY_HASHTAG_ACTOR_ID
         hashtag = request.hashtag.replace("#", "").strip()
+        cache_key = generate_cache_key("hashtag", hashtag=hashtag, max_results=request.max_results)
         apify_input = {
             "hashtags": [hashtag],
             "resultsType": "posts",
@@ -345,6 +348,35 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
         }
     else:
         raise HTTPException(status_code=400, detail="Invalid search type")
+    
+    # Check cache first
+    if cache_key:
+        cached_results = await get_cached_results(cache_key)
+        if cached_results:
+            logger.info(f"Returning {len(cached_results)} cached results for {cache_key}")
+            # Store in active_runs with special status for immediate retrieval
+            cache_run_id = f"cache_{cache_key}_{datetime.now(timezone.utc).timestamp()}"
+            active_runs[cache_run_id] = {
+                "user_email": user_email,
+                "started_at": datetime.now(timezone.utc),
+                "max_results": request.max_results,
+                "search_type": request.search_type,
+                "actor_id": actor_id,
+                "cached_results": cached_results,
+                "is_cached": True
+            }
+            
+            await log_audit("search_cached", user_email, {
+                "cache_key": cache_key,
+                "search_type": request.search_type,
+                "results_count": len(cached_results)
+            })
+            
+            return StartSearchResponse(
+                run_id=cache_run_id,
+                status="CACHED",
+                message=f"Found {len(cached_results)} cached results from previous search"
+            )
     
     # Start Apify actor
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -364,7 +396,8 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
                 "started_at": datetime.now(timezone.utc),
                 "max_results": request.max_results,
                 "search_type": request.search_type,
-                "actor_id": actor_id
+                "actor_id": actor_id,
+                "cache_key": cache_key
             }
             
             logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")

@@ -815,18 +815,21 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               <TabsContent value="url" className="mt-4 space-y-4">
                 <div>
                   <Label className="text-slate-700 font-medium">
-                    Instagram Reel URL
+                    Instagram Profile URL(s)
                   </Label>
                   <p className="text-sm text-slate-500 mb-2">
-                    Enter a direct reel URL
+                    Enter profile URLs (one per line) - we'll extract usernames and find their reels
                   </p>
-                  <Input
-                    placeholder="https://www.instagram.com/reel/ABC123/"
+                  <Textarea
+                    placeholder="https://www.instagram.com/natgeo&#10;https://www.instagram.com/nike&#10;https://www.instagram.com/my_date_jar"
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    className="h-10 border-slate-200 focus:border-blue-500"
+                    className="h-24 border-slate-200 focus:border-blue-500 font-mono text-sm"
                     data-testid="url-input"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Supports formats: instagram.com/username or just the username
+                  </p>
                 </div>
               </TabsContent>
 

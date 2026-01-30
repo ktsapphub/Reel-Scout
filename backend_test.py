@@ -174,6 +174,145 @@ class IGReelFinderAPITester:
                 return False
         return False
 
+    def test_async_search_start_username(self):
+        """Test async search start with username"""
+        success, response = self.run_test(
+            "Start async username search",
+            "POST",
+            "reels/search/start",
+            200,
+            data={
+                "search_type": "username",
+                "usernames": ["natgeo"],
+                "max_results": 5
+            }
+        )
+        if success and 'run_id' in response:
+            self.run_id = response['run_id']
+            return True
+        return False
+
+    def test_async_search_start_url_limitation(self):
+        """Test async search start with URL shows limitation"""
+        success, response = self.run_test(
+            "Start async URL search (should show limitation)",
+            "POST",
+            "reels/search/start",
+            200,
+            data={
+                "search_type": "url",
+                "urls": ["https://www.instagram.com/reel/ABC123/"],
+                "max_results": 5
+            }
+        )
+        if success:
+            status = response.get('status', '')
+            if status == 'NOT_SUPPORTED':
+                self.log_test("Async URL search limitation", True, f"Status: {status}")
+                return True
+            else:
+                self.log_test("Async URL search limitation", False, f"Unexpected status: {status}")
+                return False
+        return False
+
+    def test_async_search_start_hashtag_limitation(self):
+        """Test async search start with hashtag shows limitation"""
+        success, response = self.run_test(
+            "Start async hashtag search (should show limitation)",
+            "POST",
+            "reels/search/start",
+            200,
+            data={
+                "search_type": "hashtag",
+                "hashtag": "datenight",
+                "max_results": 5
+            }
+        )
+        if success:
+            status = response.get('status', '')
+            if status == 'NOT_SUPPORTED':
+                self.log_test("Async hashtag search limitation", True, f"Status: {status}")
+                return True
+            else:
+                self.log_test("Async hashtag search limitation", False, f"Unexpected status: {status}")
+                return False
+        return False
+
+    def test_async_search_status(self):
+        """Test async search status endpoint"""
+        if not hasattr(self, 'run_id') or not self.run_id:
+            self.log_test("Get search status", False, "No run_id available from previous test")
+            return False
+            
+        success, response = self.run_test(
+            "Get async search status",
+            "GET",
+            f"reels/search/status/{self.run_id}",
+            200
+        )
+        if success:
+            # Check if response has expected fields
+            expected_fields = ['status', 'progress']
+            missing_fields = [field for field in expected_fields if field not in response]
+            if not missing_fields:
+                self.log_test("Search status response format", True, f"Status: {response.get('status')}, Progress: {response.get('progress')}%")
+                return True
+            else:
+                self.log_test("Search status response format", False, f"Missing fields: {missing_fields}")
+                return False
+        return False
+
+    def test_async_search_stop(self):
+        """Test async search stop endpoint"""
+        if not hasattr(self, 'run_id') or not self.run_id:
+            self.log_test("Stop search", False, "No run_id available from previous test")
+            return False
+            
+        success, response = self.run_test(
+            "Stop async search",
+            "POST",
+            f"reels/search/stop/{self.run_id}",
+            200
+        )
+        if success:
+            status = response.get('status', '')
+            if status == 'ABORTED':
+                self.log_test("Search stop functionality", True, f"Status: {status}")
+                return True
+            else:
+                self.log_test("Search stop functionality", False, f"Unexpected status: {status}")
+                return False
+        return False
+
+    def test_async_search_missing_username(self):
+        """Test async search start without usernames"""
+        success, _ = self.run_test(
+            "Async username search without usernames",
+            "POST",
+            "reels/search/start",
+            400,
+            data={
+                "search_type": "username",
+                "usernames": [],
+                "max_results": 5
+            }
+        )
+        return success
+
+    def test_async_search_invalid_type(self):
+        """Test async search start with invalid search type"""
+        success, _ = self.run_test(
+            "Async search with invalid type",
+            "POST",
+            "reels/search/start",
+            400,
+            data={
+                "search_type": "invalid",
+                "max_results": 5
+            }
+        )
+        return success
+
     def test_export_reels(self):
         """Test export reels functionality"""
         # Create sample reel data for export

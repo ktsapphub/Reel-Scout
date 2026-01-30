@@ -26,7 +26,7 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - [x] Login/logout functionality
 - [x] Dashboard with 3 search mode tabs (Username, Profile URL, Hashtag)
 - [x] Username search via Apify actor (xMc5Ga1oCONPmWJIa)
-- [x] Hashtag search via Apify actor (reGe1ST3OBgYZSsZJ) - reels only filtering
+- [x] Hashtag search via Apify actor (reGe1ST3OBgYZSsZJ) - **reels only filtering** (dual parameters + strict backend filtering)
 - [x] Profile URL search (extracts usernames)
 - [x] Cost estimator (maxResults / 1000 * $2.60)
 - [x] Results display with video player and metadata

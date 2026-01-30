@@ -832,6 +832,32 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     event.target.value = "";
   };
 
+  const downloadSampleCsv = () => {
+    const sampleContent = `# Sample Instagram Usernames CSV
+# Format: One username per line, or comma-separated
+# Lines starting with # are ignored
+# The @ symbol is optional and will be removed
+
+natgeo
+nike
+nasa
+mydatejar
+foodnetwork, tasty, bonappetitmag
+travelandleisure
+`;
+    
+    const blob = new Blob([sampleContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'sample_usernames.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Sample CSV downloaded");
+  };
+
   const showExecutionResult = (status, message, error = null, resultsCount = 0, searchRunId = null) => {
     setExecutionStatus({ status, message, error, results_count: resultsCount, run_id: searchRunId });
     setShowStatusModal(true);

@@ -383,13 +383,23 @@ class IGReelFinderAPITester:
 
         self.test_get_me()
 
-        # Search tests
-        print("\n🔍 Search Tests:")
+        # Legacy search tests
+        print("\n🔍 Legacy Search Tests:")
         self.test_search_username()
         self.test_search_url_limitation()
         self.test_search_hashtag_limitation()
         self.test_search_invalid_type()
         self.test_search_missing_username()
+
+        # New async search tests
+        print("\n⚡ Async Search Tests:")
+        self.test_async_search_start_username()
+        self.test_async_search_start_url_limitation()
+        self.test_async_search_start_hashtag_limitation()
+        self.test_async_search_status()
+        self.test_async_search_stop()
+        self.test_async_search_missing_username()
+        self.test_async_search_invalid_type()
 
         # Export tests
         print("\n📤 Export Tests:")

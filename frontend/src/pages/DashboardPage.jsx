@@ -655,16 +655,38 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [executionStatus, setExecutionStatus] = useState(null);
 
-  const [results, setResults] = useState([]);
+  // Initialize results from localStorage
+  const [results, setResults] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ig_reel_finder_results");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [message, setMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedIds, setSelectedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ig_reel_finder_selected");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [expandedTranscripts, setExpandedTranscripts] = useState(new Set());
 
   const [uploading, setUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
-  const [uploadedReelIds, setUploadedReelIds] = useState(new Set());
+  const [uploadedReelIds, setUploadedReelIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ig_reel_finder_uploaded");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   const [exporting, setExporting] = useState(false);
 
@@ -672,6 +694,21 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     baseURL: `${backendUrl}/api`,
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  // Save results to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem("ig_reel_finder_results", JSON.stringify(results));
+  }, [results]);
+
+  // Save selected IDs to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem("ig_reel_finder_selected", JSON.stringify([...selectedIds]));
+  }, [selectedIds]);
+
+  // Save uploaded IDs to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem("ig_reel_finder_uploaded", JSON.stringify([...uploadedReelIds]));
+  }, [uploadedReelIds]);
 
   const estimatedCost = ((maxResults / 1000) * 2.6).toFixed(2);
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE);

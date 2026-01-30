@@ -1430,7 +1430,15 @@ travelandleisure
                     </div>
                   </div>
                   <Progress value={progress} className="h-2" />
-                  <p className="text-xs text-blue-600 mt-2">Fetching up to {maxResults} reels. You can stop anytime to get partial results.</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-blue-600">
+                      {itemsProcessed > 0 
+                        ? `Sifting through ${itemsProcessed} items collected...` 
+                        : `Fetching up to ${maxResults} reels...`
+                      }
+                    </p>
+                    <p className="text-xs text-blue-500">Click Stop to get partial results anytime</p>
+                  </div>
                 </div>
               )}
             </CardContent>

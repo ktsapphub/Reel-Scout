@@ -173,6 +173,9 @@ class SearchRequest(BaseModel):
     urls: Optional[List[str]] = None
     hashtag: Optional[str] = None
     max_results: int = 25
+    # Advanced filters
+    only_posts_newer_than: Optional[str] = None  # Date string like "2024-01-01"
+    include_tagged_posts: Optional[bool] = False
 
 class ReelResult(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

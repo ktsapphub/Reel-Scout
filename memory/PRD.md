@@ -94,12 +94,18 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - `POST /api/auth/login` - JWT authentication
 - `POST /api/reels/search/start` - Start Apify search
 - `GET /api/reels/search/status/{run_id}` - Poll search status
-- `POST /api/reels/search/stop/{run_id}` - Stop running search
+- `POST /api/reels/search/stop/{run_id}` - Stop running search (returns partial results)
 - `POST /api/reels/upload` - Upload to Cloudinary
 - `GET /api/reels/upload/status/{task_id}` - Poll upload status
 - `POST /api/reels/export` - Generate CSV
 - `GET /api/search-history` - List cached searches
 - `GET /api/search-history/{cache_key}` - Load specific cached search
+
+## Apify Actor Configuration
+- **Username Actor**: `xMc5Ga1oCONPmWJIa` - For username/profile searches
+- **Hashtag Actor**: `reGe1ST3OBgYZSsZJ` - For hashtag searches
+  - Input format: `{ "hashtags": ["tag"], "resultsType": "reels", "resultsLimit": N }`
+  - Key-Value Store ID: `SvuIw7S8Yl3wY5Lvb`
 
 ## New Features (Jan 30, 2026)
 

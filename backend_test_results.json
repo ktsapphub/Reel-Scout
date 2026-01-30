@@ -1,153 +1,141 @@
 {
   "summary": {
-    "total_tests": 24,
-    "passed_tests": 22,
-    "success_rate": "91.7%"
+    "total_tests": 22,
+    "passed_tests": 18,
+    "success_rate": "81.8%"
   },
   "test_results": [
     {
       "test": "Login with valid credentials",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:31:48.319912"
+      "timestamp": "2026-01-30T16:40:36.059702"
     },
     {
       "test": "Login with invalid password",
       "success": true,
       "details": "Status: 401",
-      "timestamp": "2026-01-30T16:31:48.382193"
+      "timestamp": "2026-01-30T16:40:36.097385"
     },
     {
       "test": "Login with non-allowlist email",
       "success": true,
       "details": "Status: 403",
-      "timestamp": "2026-01-30T16:31:48.427083"
+      "timestamp": "2026-01-30T16:40:36.138303"
     },
     {
       "test": "Get current user info",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:31:48.462454"
+      "timestamp": "2026-01-30T16:40:36.184806"
     },
     {
       "test": "Search reels by username",
       "success": false,
-      "details": "Error: HTTPSConnectionPool(host='contentjar.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
-      "timestamp": "2026-01-30T16:32:18.515108"
+      "details": "Status: 520 (Expected: 200), Response: {'detail': \"Apify API error: Client error '403 Forbidden' for url 'https://api.apify.com/v2/acts/xMc5Ga1oCONPmWJIa/runs?token=apify_api_knabf9BqPhWRrRYhD3tCitiRVtEcPp01bW1e'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403\"}",
+      "timestamp": "2026-01-30T16:40:36.419631"
     },
     {
       "test": "Search reels by URL (should show limitation)",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:18.596601"
+      "timestamp": "2026-01-30T16:40:36.461758"
     },
     {
       "test": "URL search limitation message",
       "success": true,
       "details": "Message: Current Apify actor does not support direct URL mode. Use Username or Hashtag, or switch actors.",
-      "timestamp": "2026-01-30T16:32:18.597202"
+      "timestamp": "2026-01-30T16:40:36.462331"
     },
     {
       "test": "Search reels by hashtag (should show limitation)",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:18.637677"
+      "timestamp": "2026-01-30T16:40:36.501189"
     },
     {
       "test": "Hashtag search limitation message",
       "success": true,
       "details": "Message: Hashtag mode requires a hashtag-capable actor. Use Username mode or add a second Apify actor for hashtags.",
-      "timestamp": "2026-01-30T16:32:18.638327"
+      "timestamp": "2026-01-30T16:40:36.501820"
     },
     {
       "test": "Search with invalid type",
       "success": true,
       "details": "Status: 400",
-      "timestamp": "2026-01-30T16:32:18.717472"
+      "timestamp": "2026-01-30T16:40:36.543679"
     },
     {
       "test": "Username search without usernames",
       "success": true,
       "details": "Status: 400",
-      "timestamp": "2026-01-30T16:32:18.756354"
+      "timestamp": "2026-01-30T16:40:36.587130"
     },
     {
       "test": "Start async username search",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:19.189235"
+      "timestamp": "2026-01-30T16:40:36.932696"
     },
     {
       "test": "Start async URL search (should show limitation)",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:19.234378"
+      "timestamp": "2026-01-30T16:40:36.974563"
     },
     {
       "test": "Async URL search limitation",
       "success": true,
       "details": "Status: NOT_SUPPORTED",
-      "timestamp": "2026-01-30T16:32:19.235087"
+      "timestamp": "2026-01-30T16:40:36.975278"
     },
     {
       "test": "Start async hashtag search (should show limitation)",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:19.270797"
+      "timestamp": "2026-01-30T16:40:37.013237"
     },
     {
       "test": "Async hashtag search limitation",
       "success": true,
       "details": "Status: NOT_SUPPORTED",
-      "timestamp": "2026-01-30T16:32:19.271329"
+      "timestamp": "2026-01-30T16:40:37.013835"
     },
     {
-      "test": "Get async search status",
-      "success": true,
-      "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:19.485104"
+      "test": "Get search status",
+      "success": false,
+      "details": "No run_id available from previous test",
+      "timestamp": "2026-01-30T16:40:37.013856"
     },
     {
-      "test": "Search status response format",
-      "success": true,
-      "details": "Status: RUNNING, Progress: 2%",
-      "timestamp": "2026-01-30T16:32:19.485731"
-    },
-    {
-      "test": "Stop async search",
-      "success": true,
-      "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:20.019751"
-    },
-    {
-      "test": "Search stop functionality",
-      "success": true,
-      "details": "Status: ABORTED",
-      "timestamp": "2026-01-30T16:32:20.020519"
+      "test": "Stop search",
+      "success": false,
+      "details": "No run_id available from previous test",
+      "timestamp": "2026-01-30T16:40:37.013864"
     },
     {
       "test": "Async username search without usernames",
       "success": true,
       "details": "Status: 400",
-      "timestamp": "2026-01-30T16:32:20.061467"
+      "timestamp": "2026-01-30T16:40:37.046463"
     },
     {
       "test": "Async search with invalid type",
       "success": true,
       "details": "Status: 400",
-      "timestamp": "2026-01-30T16:32:20.101612"
+      "timestamp": "2026-01-30T16:40:37.086003"
     },
     {
       "test": "Export reels to CSV",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:32:20.141294"
+      "timestamp": "2026-01-30T16:40:37.125871"
     },
     {
       "test": "Export reels to CSV",
       "success": false,
       "details": "Error: Expecting value: line 1 column 1 (char 0)",
-      "timestamp": "2026-01-30T16:32:20.141354"
+      "timestamp": "2026-01-30T16:40:37.125932"
     }
   ]
 }

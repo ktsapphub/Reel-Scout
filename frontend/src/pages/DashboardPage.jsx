@@ -78,6 +78,7 @@ import {
   ArrowRight,
   FileSpreadsheet,
   History,
+  FileUp,
 } from "lucide-react";
 import axios from "axios";
 

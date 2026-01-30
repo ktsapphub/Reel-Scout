@@ -525,43 +525,88 @@ async def process_apify_results(items: List[Dict], user_email: str) -> List[Reel
     saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
     saved_urls = {r["reel_url"] for r in saved_reels}
     
-    for item in items:
-        # Only video reels
-        if item.get("type") != "Video" and item.get("videoUrl") is None:
-            continue
-        
-        # Duration filter (<= 120 seconds)
-        duration = item.get("videoDuration", 0) or 0
-        if duration > 120:
-            continue
-        
-        # De-duplicate
-        reel_url = item.get("url", "")
-        reel_id = extract_reel_id(reel_url)
-        if reel_id in seen_ids or reel_url in saved_urls:
-            continue
-        seen_ids.add(reel_id)
-        
-        # Extract music info
-        music_info = item.get("musicInfo", {}) or {}
-        
-        # Map to our schema
-        reel = ReelResult(
-            owner_username=item.get("ownerUsername", ""),
-            owner_full_name=item.get("ownerFullName", ""),
-            reel_url=reel_url,
-            downloaded_video_url=item.get("videoUrl", "") or item.get("downloadedVideoUrl", "") or "",
-            original_video_url=item.get("videoUrl", "") or "",
-            timestamp=item.get("timestamp", ""),
-            video_duration_seconds=duration,
-            video_transcript=item.get("transcript", "") or "",
-            tagged_users=item.get("taggedUsers", []) or [],
-            music_artist=music_info.get("artist_name", "") or "",
-            music_song=music_info.get("song_name", "") or "",
-            music_original_audio=music_info.get("is_original_audio", False) or False
-        )
-        results.append(reel)
+    logger.info(f"Processing {len(items)} items from Apify")
     
+    for item in items:
+        try:
+            # Check if it's a video - be more lenient with type checking
+            item_type = item.get("type", "")
+            video_url = item.get("videoUrl") or item.get("video_url") or item.get("displayUrl")
+            
+            # Skip if not a video (but be lenient - if there's a video URL, include it)
+            if item_type and item_type != "Video" and not video_url:
+                logger.debug(f"Skipping non-video item: {item_type}")
+                continue
+            
+            # Duration filter (<= 120 seconds) - be lenient if duration not available
+            duration = item.get("videoDuration") or item.get("video_duration") or 0
+            if duration and duration > 120:
+                logger.debug(f"Skipping item with duration > 120s: {duration}")
+                continue
+            
+            # De-duplicate
+            reel_url = item.get("url") or item.get("shortCode") or ""
+            if not reel_url:
+                continue
+                
+            reel_id = extract_reel_id(reel_url)
+            if reel_id in seen_ids or reel_url in saved_urls:
+                continue
+            seen_ids.add(reel_id)
+            
+            # Extract music info - handle different structures
+            music_info = item.get("musicInfo") or item.get("music_info") or {}
+            if isinstance(music_info, dict):
+                music_artist = music_info.get("artist_name") or music_info.get("artistName") or ""
+                music_song = music_info.get("song_name") or music_info.get("songName") or music_info.get("title") or ""
+                music_original = music_info.get("is_original_audio") or music_info.get("isOriginalAudio") or False
+            else:
+                music_artist = ""
+                music_song = ""
+                music_original = False
+            
+            # Extract tagged users - handle both string arrays and object arrays
+            raw_tagged = item.get("taggedUsers") or item.get("tagged_users") or []
+            tagged_users = []
+            if isinstance(raw_tagged, list):
+                for user in raw_tagged:
+                    if isinstance(user, str):
+                        tagged_users.append(user)
+                    elif isinstance(user, dict):
+                        # Extract username from object
+                        username = user.get("username") or user.get("user") or user.get("name") or ""
+                        if username:
+                            tagged_users.append(username)
+            
+            # Get video URLs
+            downloaded_url = item.get("videoUrl") or item.get("video_url") or item.get("downloadedVideoUrl") or ""
+            original_url = item.get("videoUrl") or item.get("displayUrl") or ""
+            
+            # Get transcript
+            transcript = item.get("transcript") or item.get("caption") or item.get("text") or ""
+            
+            # Map to our schema
+            reel = ReelResult(
+                owner_username=item.get("ownerUsername") or item.get("owner_username") or item.get("username") or "",
+                owner_full_name=item.get("ownerFullName") or item.get("owner_full_name") or item.get("fullName") or "",
+                reel_url=reel_url,
+                downloaded_video_url=downloaded_url,
+                original_video_url=original_url,
+                timestamp=item.get("timestamp") or item.get("taken_at") or item.get("takenAt") or "",
+                video_duration_seconds=duration or 0,
+                video_transcript=transcript,
+                tagged_users=tagged_users,
+                music_artist=music_artist,
+                music_song=music_song,
+                music_original_audio=music_original
+            )
+            results.append(reel)
+            
+        except Exception as e:
+            logger.error(f"Error processing item: {e}")
+            continue
+    
+    logger.info(f"Processed {len(results)} valid reels from {len(items)} items")
     return results
 
 @api_router.post("/reels/search", response_model=SearchResponse)

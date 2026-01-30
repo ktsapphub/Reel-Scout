@@ -277,9 +277,112 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
             
             return StartSearchResponse(run_id=run_id, status="RUNNING")
             
+        except httpx.TimeoutException as e:
+            logger.error(f"Apify API timeout: {e}")
+            return StartSearchResponse(
+                run_id="",
+                status="ERROR",
+                message="Request timed out",
+                error=ExecutionError(
+                    error_type="TIMEOUT",
+                    error_message="The request to Apify API timed out",
+                    error_code="APIFY_TIMEOUT",
+                    possible_cause="Apify servers may be experiencing high load or the request took too long to process",
+                    suggested_solution="Try again in a few minutes. If the problem persists, reduce the number of results requested.",
+                    technical_details=str(e)
+                )
+            )
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Apify API HTTP error: {e}")
+            status_code = e.response.status_code
+            error_body = e.response.text[:500] if e.response.text else "No response body"
+            
+            if status_code == 401:
+                return StartSearchResponse(
+                    run_id="",
+                    status="ERROR",
+                    message="Authentication failed",
+                    error=ExecutionError(
+                        error_type="AUTHENTICATION",
+                        error_message="Invalid or expired Apify API token",
+                        error_code=f"HTTP_{status_code}",
+                        possible_cause="The Apify API token is invalid, expired, or has been revoked",
+                        suggested_solution="Contact your administrator to verify the Apify API token is correct and active.",
+                        technical_details=f"Status: {status_code}, Response: {error_body}"
+                    )
+                )
+            elif status_code == 403:
+                return StartSearchResponse(
+                    run_id="",
+                    status="ERROR",
+                    message="Access denied",
+                    error=ExecutionError(
+                        error_type="AUTHORIZATION",
+                        error_message="You don't have permission to use this Apify actor",
+                        error_code=f"HTTP_{status_code}",
+                        possible_cause="The API token doesn't have permission to run this actor, or usage limits have been exceeded",
+                        suggested_solution="Check your Apify account permissions and billing status.",
+                        technical_details=f"Status: {status_code}, Response: {error_body}"
+                    )
+                )
+            elif status_code == 429:
+                return StartSearchResponse(
+                    run_id="",
+                    status="ERROR",
+                    message="Rate limit exceeded",
+                    error=ExecutionError(
+                        error_type="RATE_LIMIT",
+                        error_message="Too many requests to Apify API",
+                        error_code=f"HTTP_{status_code}",
+                        possible_cause="You've made too many requests in a short period of time",
+                        suggested_solution="Wait a few minutes before trying again. Consider spacing out your searches.",
+                        technical_details=f"Status: {status_code}, Response: {error_body}"
+                    )
+                )
+            else:
+                return StartSearchResponse(
+                    run_id="",
+                    status="ERROR",
+                    message=f"API error (HTTP {status_code})",
+                    error=ExecutionError(
+                        error_type="API_ERROR",
+                        error_message=f"Apify API returned an error",
+                        error_code=f"HTTP_{status_code}",
+                        possible_cause="There may be an issue with the Apify service or the request parameters",
+                        suggested_solution="Try again later. If the problem persists, check Apify status page.",
+                        technical_details=f"Status: {status_code}, Response: {error_body}"
+                    )
+                )
         except httpx.HTTPError as e:
             logger.error(f"Apify API error: {e}")
-            raise HTTPException(status_code=500, detail=f"Apify API error: {str(e)}")
+            return StartSearchResponse(
+                run_id="",
+                status="ERROR",
+                message="Connection error",
+                error=ExecutionError(
+                    error_type="CONNECTION",
+                    error_message="Failed to connect to Apify API",
+                    error_code="CONNECTION_FAILED",
+                    possible_cause="Network connectivity issues or Apify servers are unreachable",
+                    suggested_solution="Check your internet connection and try again. The Apify service might be temporarily unavailable.",
+                    technical_details=str(e)
+                )
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return StartSearchResponse(
+                run_id="",
+                status="ERROR",
+                message="Unexpected error occurred",
+                error=ExecutionError(
+                    error_type="UNEXPECTED",
+                    error_message="An unexpected error occurred while starting the search",
+                    error_code="INTERNAL_ERROR",
+                    possible_cause="An internal server error occurred",
+                    suggested_solution="Try again. If the problem persists, contact support.",
+                    technical_details=str(e)
+                )
+            )
 
 @api_router.get("/reels/search/status/{run_id}", response_model=SearchStatusResponse)
 async def get_search_status(run_id: str, user_email: str = Depends(get_current_user)):

@@ -47,7 +47,8 @@ USER_PASSWORD = "#Test1234"
 
 # Apify config
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
-APIFY_ACTOR_ID = "xMc5Ga1oCONPmWJIa"
+APIFY_ACTOR_ID = "xMc5Ga1oCONPmWJIa"  # Username scraper
+APIFY_HASHTAG_ACTOR_ID = "reGe1ST3OBgYZSsZJ"  # Hashtag scraper
 
 # Create the main app
 app = FastAPI()

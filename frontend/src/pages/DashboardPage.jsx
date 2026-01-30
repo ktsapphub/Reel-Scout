@@ -1119,6 +1119,23 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                     <Checkbox checked={selectedIds.size === results.length && results.length > 0} onCheckedChange={selectAll} data-testid="select-all-checkbox" />
                     <span className="text-sm text-slate-600">Select all ({selectedIds.size} selected)</span>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setResults([]);
+                      setSelectedIds(new Set());
+                      setUploadedReelIds(new Set());
+                      setCurrentPage(1);
+                      setMessage("");
+                      toast.info("Results cleared");
+                    }}
+                    className="text-slate-500 hover:text-red-600 hover:bg-red-50"
+                    data-testid="clear-results-btn"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Clear Results
+                  </Button>
                 </div>
 
                 <div className="flex items-center gap-3">

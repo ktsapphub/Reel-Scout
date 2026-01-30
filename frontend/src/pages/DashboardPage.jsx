@@ -731,7 +731,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                         <div className="relative flex-1">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
                           <Input
-                            placeholder="username"
+                            placeholder="user_name"
                             value={username}
                             onChange={(e) => updateUsername(index, e.target.value)}
                             className="h-10 pl-8 border-slate-200 focus:border-blue-500"

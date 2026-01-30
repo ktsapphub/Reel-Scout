@@ -930,15 +930,34 @@ async def search_reels(request: SearchRequest, user_email: str = Depends(get_cur
     
     return SearchResponse(results=results, total=len(results))
 
-@api_router.post("/reels/upload")
+def format_file_size(bytes_size: int) -> str:
+    """Format bytes into human readable string"""
+    if bytes_size < 1024:
+        return f"{bytes_size} B"
+    elif bytes_size < 1024 * 1024:
+        return f"{bytes_size / 1024:.1f} KB"
+    elif bytes_size < 1024 * 1024 * 1024:
+        return f"{bytes_size / (1024 * 1024):.1f} MB"
+    else:
+        return f"{bytes_size / (1024 * 1024 * 1024):.1f} GB"
+
+@api_router.post("/reels/upload", response_model=UploadResponse)
 async def upload_reels(request: UploadRequest, user_email: str = Depends(get_current_user)):
-    uploaded = []
-    errors = []
+    items = []
+    completed = 0
+    failed = 0
     
     for reel in request.reels:
         video_url = reel.get("downloaded_video_url") or reel.get("original_video_url")
+        reel_id = reel.get("id", "")
+        
         if not video_url:
-            errors.append({"reel_id": reel.get("id"), "error": "No video URL"})
+            items.append(UploadProgressItem(
+                reel_id=reel_id,
+                status="failed",
+                error="No video URL available"
+            ))
+            failed += 1
             continue
         
         try:
@@ -947,22 +966,30 @@ async def upload_reels(request: UploadRequest, user_email: str = Depends(get_cur
             transcript = reel.get("video_transcript", "")
             content_slug = generate_content_slug(transcript)
             date_str = datetime.now().strftime("%b-%d-%Y")
-            public_id = f"Content for Vibe Check/{owner}_{content_slug}_{date_str}"
+            public_id = f"{owner}_{content_slug}_{date_str}"
             
             # Upload to Cloudinary
             result = cloudinary.uploader.upload(
                 video_url,
                 resource_type="video",
                 folder="Content for Vibe Check",
-                public_id=f"{owner}_{content_slug}_{date_str}",
+                public_id=public_id,
                 overwrite=True
             )
             
-            uploaded.append({
-                "reel_id": reel.get("id"),
-                "cloudinary_url": result.get("secure_url"),
-                "cloudinary_public_id": result.get("public_id")
-            })
+            # Get file size
+            file_size = result.get("bytes", 0)
+            
+            items.append(UploadProgressItem(
+                reel_id=reel_id,
+                status="completed",
+                progress=100,
+                cloudinary_url=result.get("secure_url", ""),
+                cloudinary_public_id=result.get("public_id", ""),
+                file_size_bytes=file_size,
+                file_size_display=format_file_size(file_size)
+            ))
+            completed += 1
             
             # Save to de-dupe index
             await db.saved_reels.update_one(
@@ -971,6 +998,7 @@ async def upload_reels(request: UploadRequest, user_email: str = Depends(get_cur
                     "reel_url": reel.get("reel_url"),
                     "cloudinary_url": result.get("secure_url"),
                     "cloudinary_public_id": result.get("public_id"),
+                    "file_size_bytes": file_size,
                     "uploaded_at": datetime.now(timezone.utc).isoformat(),
                     "uploaded_by": user_email
                 }},
@@ -979,14 +1007,25 @@ async def upload_reels(request: UploadRequest, user_email: str = Depends(get_cur
             
         except Exception as e:
             logger.error(f"Cloudinary upload error: {e}")
-            errors.append({"reel_id": reel.get("id"), "error": str(e)})
+            items.append(UploadProgressItem(
+                reel_id=reel_id,
+                status="failed",
+                error=str(e)
+            ))
+            failed += 1
     
     await log_audit("upload", user_email, {
-        "uploaded_count": len(uploaded),
-        "error_count": len(errors)
+        "total": len(request.reels),
+        "completed": completed,
+        "failed": failed
     })
     
-    return {"uploaded": uploaded, "errors": errors}
+    return UploadResponse(
+        total=len(request.reels),
+        completed=completed,
+        failed=failed,
+        items=items
+    )
 
 @api_router.post("/reels/export")
 async def export_reels(request: ExportRequest, user_email: str = Depends(get_current_user)):

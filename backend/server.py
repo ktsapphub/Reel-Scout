@@ -746,35 +746,56 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
             raise HTTPException(status_code=500, detail=f"Failed to stop search: {str(e)}")
 
 async def process_apify_results(items: List[Dict], user_email: str) -> List[ReelResult]:
-    """Process Apify results into ReelResult objects"""
+    """Process Apify results into ReelResult objects - ONLY REELS"""
     results = []
     seen_ids = set()
+    skipped_images = 0
+    skipped_no_video = 0
     
     # Get previously saved reel IDs for de-duplication
     saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
     saved_urls = {r["reel_url"] for r in saved_reels}
     
-    logger.info(f"Processing {len(items)} items from Apify")
+    logger.info(f"Processing {len(items)} items from Apify (filtering for reels only)")
     
     for item in items:
         try:
-            # Check if it's a video/reel - filter out images
-            item_type = item.get("type", "") or item.get("productType", "") or ""
-            video_url = item.get("videoUrl") or item.get("video_url") or item.get("displayUrl")
+            # Get all possible type indicators
+            item_type = (item.get("type", "") or item.get("productType", "") or "").lower()
+            media_type = (item.get("mediaType", "") or item.get("media_type", "") or "").lower()
+            
+            # Get video URL - this is the key indicator
+            video_url = (
+                item.get("videoUrl") or 
+                item.get("video_url") or 
+                item.get("videoPlaybackUrl") or
+                item.get("video_playback_url") or
+                None
+            )
+            
+            # Check explicit video/reel flags
             is_video = item.get("isVideo", False) or item.get("is_video", False)
+            is_reel = "reel" in item_type or "reel" in media_type or "/reel/" in str(item.get("url", ""))
             
-            # Skip if it's not a video/reel (filter out images)
-            if item_type.lower() in ["image", "photo", "sidecar", "graphimage"]:
-                logger.debug(f"Skipping image item: {item_type}")
+            # STRICT FILTERING: Must be a video/reel
+            # Skip explicitly marked images/photos
+            image_types = ["image", "photo", "sidecar", "graphimage", "carousel", "graphsidecar"]
+            if item_type in image_types or media_type in image_types:
+                skipped_images += 1
+                logger.debug(f"Skipping image: type={item_type}, media_type={media_type}")
                 continue
             
-            # Must have a video URL or be explicitly marked as video
-            if not video_url and not is_video and item_type.lower() not in ["video", "reel", "clips"]:
-                logger.debug(f"Skipping non-video item: {item_type}")
-                continue
+            # Must have a video URL OR be explicitly marked as video/reel
+            if not video_url and not is_video and not is_reel:
+                # Check if displayUrl looks like a video (has video indicators)
+                display_url = item.get("displayUrl", "") or ""
+                if not display_url or ".jpg" in display_url or ".png" in display_url or ".webp" in display_url:
+                    skipped_no_video += 1
+                    logger.debug(f"Skipping non-video: no video URL, type={item_type}")
+                    continue
             
-            # Duration filter (<= 120 seconds) - be lenient if duration not available
-            duration = item.get("videoDuration") or item.get("video_duration") or item.get("videoPlayCount") or 0
+            # Duration filter - reels are typically <= 90 seconds, be lenient up to 120
+            duration = item.get("videoDuration") or item.get("video_duration") or item.get("duration") or 0
             if duration and duration > 120:
                 logger.debug(f"Skipping item with duration > 120s: {duration}")
                 continue

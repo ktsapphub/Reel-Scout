@@ -103,9 +103,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 
 ## Apify Actor Configuration
 - **Username Actor**: `xMc5Ga1oCONPmWJIa` - For username/profile searches
-- **Hashtag Actor**: `reGe1ST3OBgYZSsZJ` - For hashtag searches
-  - Input format: `{ "hashtags": ["tag"], "resultsType": "reels", "resultsLimit": N }`
+  - Input: `{ "username": [...], "resultsLimit": N }`
+- **Hashtag Actor**: `reGe1ST3OBgYZSsZJ` - For hashtag searches (reels only)
+  - Input: `{ "hashtags": ["tag"], "resultsType": "reels", "resultsCount": N }`
   - Key-Value Store ID: `SvuIw7S8Yl3wY5Lvb`
+  - NOTE: Uses `resultsCount` NOT `resultsLimit`
 
 ## New Features (Jan 30, 2026)
 

@@ -739,6 +739,36 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     localStorage.setItem("ig_reel_finder_uploaded", JSON.stringify([...uploadedReelIds]));
   }, [uploadedReelIds]);
 
+  // Persist search state (runId, searching, progress) to localStorage
+  useEffect(() => {
+    if (runId) {
+      localStorage.setItem("ig_reel_finder_runId", runId);
+      localStorage.setItem("ig_reel_finder_progress", progress.toString());
+    } else {
+      localStorage.removeItem("ig_reel_finder_runId");
+      localStorage.removeItem("ig_reel_finder_progress");
+    }
+  }, [runId, progress]);
+
+  // Resume polling if there's an active search on mount
+  useEffect(() => {
+    const savedRunId = localStorage.getItem("ig_reel_finder_runId");
+    if (savedRunId && !pollIntervalRef.current) {
+      setRunId(savedRunId);
+      setSearching(true);
+      // Resume polling
+      pollIntervalRef.current = setInterval(() => pollSearchStatus(savedRunId), 3000);
+    }
+    
+    // Cleanup on unmount - but DON'T stop polling, just clear interval ref
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   const estimatedCost = ((maxResults / 1000) * 2.6).toFixed(2);
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE);
   const paginatedResults = results.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);

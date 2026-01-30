@@ -494,49 +494,7 @@ async def search_reels(request: SearchRequest, user_email: str = Depends(get_cur
             raise HTTPException(status_code=500, detail=f"Apify API error: {str(e)}")
     
     # Process results
-    results = []
-    seen_ids = set()
-    
-    # Get previously saved reel IDs for de-duplication
-    saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
-    saved_urls = {r["reel_url"] for r in saved_reels}
-    
-    for item in items:
-        # Only video reels
-        if item.get("type") != "Video" and item.get("videoUrl") is None:
-            continue
-        
-        # Duration filter (<= 120 seconds)
-        duration = item.get("videoDuration", 0) or 0
-        if duration > 120:
-            continue
-        
-        # De-duplicate
-        reel_url = item.get("url", "")
-        reel_id = extract_reel_id(reel_url)
-        if reel_id in seen_ids or reel_url in saved_urls:
-            continue
-        seen_ids.add(reel_id)
-        
-        # Extract music info
-        music_info = item.get("musicInfo", {}) or {}
-        
-        # Map to our schema
-        reel = ReelResult(
-            owner_username=item.get("ownerUsername", ""),
-            owner_full_name=item.get("ownerFullName", ""),
-            reel_url=reel_url,
-            downloaded_video_url=item.get("videoUrl", "") or item.get("downloadedVideoUrl", "") or "",
-            original_video_url=item.get("videoUrl", "") or "",
-            timestamp=item.get("timestamp", ""),
-            video_duration_seconds=duration,
-            video_transcript=item.get("transcript", "") or "",
-            tagged_users=item.get("taggedUsers", []) or [],
-            music_artist=music_info.get("artist_name", "") or "",
-            music_song=music_info.get("song_name", "") or "",
-            music_original_audio=music_info.get("is_original_audio", False) or False
-        )
-        results.append(reel)
+    results = await process_apify_results(items, user_email)
     
     await log_audit("search", user_email, {
         "search_type": request.search_type,

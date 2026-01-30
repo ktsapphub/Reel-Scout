@@ -755,17 +755,23 @@ async def process_apify_results(items: List[Dict], user_email: str) -> List[Reel
     
     for item in items:
         try:
-            # Check if it's a video - be more lenient with type checking
-            item_type = item.get("type", "")
+            # Check if it's a video/reel - filter out images
+            item_type = item.get("type", "") or item.get("productType", "") or ""
             video_url = item.get("videoUrl") or item.get("video_url") or item.get("displayUrl")
+            is_video = item.get("isVideo", False) or item.get("is_video", False)
             
-            # Skip if not a video (but be lenient - if there's a video URL, include it)
-            if item_type and item_type != "Video" and not video_url:
+            # Skip if it's not a video/reel (filter out images)
+            if item_type.lower() in ["image", "photo", "sidecar", "graphimage"]:
+                logger.debug(f"Skipping image item: {item_type}")
+                continue
+            
+            # Must have a video URL or be explicitly marked as video
+            if not video_url and not is_video and item_type.lower() not in ["video", "reel", "clips"]:
                 logger.debug(f"Skipping non-video item: {item_type}")
                 continue
             
             # Duration filter (<= 120 seconds) - be lenient if duration not available
-            duration = item.get("videoDuration") or item.get("video_duration") or 0
+            duration = item.get("videoDuration") or item.get("video_duration") or item.get("videoPlayCount") or 0
             if duration and duration > 120:
                 logger.debug(f"Skipping item with duration > 120s: {duration}")
                 continue

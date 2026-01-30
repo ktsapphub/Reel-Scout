@@ -526,10 +526,35 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
         raise HTTPException(status_code=500, detail="Apify token not configured")
     
     run_info = active_runs.get(run_id, {})
+    
+    # Handle cached results
+    if run_info.get("is_cached"):
+        cached_results = run_info.get("cached_results", [])
+        # Convert cached dicts back to ReelResult objects
+        results = []
+        for item in cached_results:
+            try:
+                results.append(ReelResult(**item))
+            except Exception as e:
+                logger.error(f"Error converting cached result: {e}")
+        
+        if run_id in active_runs:
+            del active_runs[run_id]
+        
+        return SearchStatusResponse(
+            status="SUCCEEDED",
+            progress=100,
+            estimated_seconds_remaining=0,
+            results=results,
+            total=len(results),
+            message=f"Retrieved {len(results)} cached results (saved Apify credits!)"
+        )
+    
     started_at = run_info.get("started_at", datetime.now(timezone.utc))
     max_results = run_info.get("max_results", 25)
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
     search_type = run_info.get("search_type", "username")
+    cache_key = run_info.get("cache_key")
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:

@@ -1,0 +1,87 @@
+{
+  "summary": {
+    "total_tests": 13,
+    "passed_tests": 11,
+    "success_rate": "84.6%"
+  },
+  "test_results": [
+    {
+      "test": "Login with valid credentials",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:17:26.052939"
+    },
+    {
+      "test": "Login with invalid password",
+      "success": true,
+      "details": "Status: 401",
+      "timestamp": "2026-01-30T16:17:26.097887"
+    },
+    {
+      "test": "Login with non-allowlist email",
+      "success": true,
+      "details": "Status: 403",
+      "timestamp": "2026-01-30T16:17:26.137367"
+    },
+    {
+      "test": "Get current user info",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:17:26.176617"
+    },
+    {
+      "test": "Search reels by username",
+      "success": false,
+      "details": "Error: HTTPSConnectionPool(host='contentjar.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-30T16:17:56.234448"
+    },
+    {
+      "test": "Search reels by URL (should show limitation)",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:17:56.324511"
+    },
+    {
+      "test": "URL search limitation message",
+      "success": true,
+      "details": "Message: Current Apify actor does not support direct URL mode. Use Username or Hashtag, or switch actors.",
+      "timestamp": "2026-01-30T16:17:56.325043"
+    },
+    {
+      "test": "Search reels by hashtag (should show limitation)",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:17:56.368105"
+    },
+    {
+      "test": "Hashtag search limitation message",
+      "success": true,
+      "details": "Message: Hashtag mode requires a hashtag-capable actor. Use Username mode or add a second Apify actor for hashtags.",
+      "timestamp": "2026-01-30T16:17:56.368759"
+    },
+    {
+      "test": "Search with invalid type",
+      "success": true,
+      "details": "Status: 400",
+      "timestamp": "2026-01-30T16:17:56.407409"
+    },
+    {
+      "test": "Username search without usernames",
+      "success": true,
+      "details": "Status: 400",
+      "timestamp": "2026-01-30T16:17:56.447911"
+    },
+    {
+      "test": "Export reels to CSV",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:17:56.488987"
+    },
+    {
+      "test": "Export reels to CSV",
+      "success": false,
+      "details": "Error: Expecting value: line 1 column 1 (char 0)",
+      "timestamp": "2026-01-30T16:17:56.489047"
+    }
+  ]
+}

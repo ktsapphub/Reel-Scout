@@ -710,7 +710,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                   data-testid="tab-url"
                 >
                   <LinkIcon className="w-4 h-4 mr-2" />
-                  Direct URL
+                  Profile URL
                 </TabsTrigger>
                 <TabsTrigger
                   value="hashtag"

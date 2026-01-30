@@ -1,0 +1,163 @@
+{
+  "identity": {
+    "name": "IG Reel Finder",
+    "persona": "E1 - The Anti-AI Designer",
+    "tone": "Professional, Efficient, Minimal, Functional",
+    "theme": "Light Mode Only"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Chivo, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl font-bold tracking-tight",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-slate-500"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');"
+    ]
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#2563EB",
+        "foreground": "#FFFFFF",
+        "hover": "#1D4ED8"
+      },
+      "background": {
+        "DEFAULT": "#FFFFFF",
+        "secondary": "#F8FAFC",
+        "tertiary": "#F1F5F9"
+      },
+      "foreground": {
+        "DEFAULT": "#0F172A",
+        "muted": "#64748B",
+        "subtle": "#94A3B8"
+      },
+      "border": {
+        "DEFAULT": "#E2E8F0",
+        "subtle": "#F1F5F9",
+        "strong": "#CBD5E1"
+      },
+      "accent": {
+        "DEFAULT": "#EFF6FF",
+        "foreground": "#1E40AF"
+      },
+      "destructive": {
+        "DEFAULT": "#EF4444",
+        "foreground": "#FFFFFF"
+      },
+      "success": {
+        "DEFAULT": "#10B981",
+        "foreground": "#FFFFFF"
+      }
+    },
+    "usage": {
+      "body_bg": "bg-white",
+      "sidebar_bg": "bg-slate-50 border-r border-slate-200",
+      "card_bg": "bg-white border border-slate-200",
+      "text_main": "text-slate-900",
+      "text_muted": "text-slate-500"
+    }
+  },
+  "layout": {
+    "grid_system": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-[240px_1fr] h-screen",
+      "reels_grid": "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "form_layout": "max-w-2xl mx-auto space-y-8"
+    },
+    "spacing": {
+      "page_padding": "p-8 md:p-12",
+      "section_gap": "gap-8",
+      "component_gap": "gap-4"
+    },
+    "container": {
+      "max_width": "max-w-7xl mx-auto"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-2 font-medium transition-all shadow-sm hover:shadow-md",
+      "secondary": "bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-full px-6 py-2 font-medium transition-all",
+      "ghost": "hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-md px-4 py-2 transition-colors",
+      "icon": "p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+    },
+    "inputs": {
+      "base": "flex h-12 w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+      "search_large": "h-14 text-lg px-6 rounded-full shadow-sm hover:shadow-md transition-shadow"
+    },
+    "cards": {
+      "base": "rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm transition-all hover:shadow-md",
+      "reel_card": "group relative aspect-[9/16] overflow-hidden rounded-xl bg-slate-100 border border-slate-200"
+    },
+    "badges": {
+      "base": "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+      "primary": "border-transparent bg-blue-100 text-blue-700 hover:bg-blue-200",
+      "outline": "text-slate-500 border-slate-200"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
+      "hover": "shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+    },
+    "borders": {
+      "subtle": "border border-slate-100",
+      "default": "border border-slate-200"
+    },
+    "glassmorphism": {
+      "header": "bg-white/80 backdrop-blur-md border-b border-slate-200/50"
+    },
+    "animation": {
+      "hover_lift": "transition-transform duration-200 hover:-translate-y-1",
+      "fade_in": "animate-in fade-in duration-500"
+    }
+  },
+  "assets": {
+    "logo_url": "https://images.unsplash.com/photo-1633412802994-5c058f151b66?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGJsdWUlMjBnZW9tZXRyaWMlMjBtaW5pbWFsJTIwbG9nb3xlbnwwfHx8fDE3Njk3ODk0NDZ8MA&ixlib=rb-4.1.0&q=85",
+    "icons_library": "lucide-react"
+  },
+  "accessibility": {
+    "contrast_check": "Ensure text is Slate-600 or darker on white backgrounds.",
+    "focus_states": "All interactive elements must have visible focus rings (blue-600).",
+    "aria_labels": "Required for all icon-only buttons."
+  },
+  "instructions_to_main_agent": [
+    "Use 'Chivo' for all Headings (h1-h3) and 'Manrope' for body text.",
+    "Implement the 'Sidebar' layout for the main dashboard.",
+    "The 'Search' page should have a centered, large search input initially, which moves to the top when results are shown.",
+    "Use the 'Reel Card' style for displaying video results - aspect ratio 9/16 is critical.",
+    "Ensure the 'Cost Estimator' is visible but not intrusive - maybe a badge or small widget in the header.",
+    "Use 'Sonner' for all toast notifications (success/error).",
+    "Strictly follow the color palette - do not introduce new colors unless absolutely necessary for status (e.g., red for error).",
+    "For the 'Login' page, keep it extremely simple: centered card, logo, allowlist check.",
+    "Use 'lucide-react' for icons.",
+    "Do not use gradients for backgrounds. Keep it flat and clean.",
+    "Add 'data-testid' to all interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: `transition: all`. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add `.App { text-align: center; }` in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use `sonner` for toasts. Sonner component are located in `/app/src/components/ui/sonner.tsx`"
+  ]
+}

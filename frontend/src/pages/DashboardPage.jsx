@@ -923,10 +923,11 @@ travelandleisure
   const pollSearchStatus = async (searchRunId) => {
     try {
       const response = await api.get(`/reels/search/status/${searchRunId}`);
-      const { status, progress: prog, estimated_seconds_remaining, results: searchResults, total, message: msg, error } = response.data;
+      const { status, progress: prog, estimated_seconds_remaining, results: searchResults, total, message: msg, error, items_processed } = response.data;
       
       setProgress(prog);
       setEstimatedTime(estimated_seconds_remaining);
+      setItemsProcessed(items_processed || 0);
       
       if (status === "SUCCEEDED") {
         clearInterval(pollIntervalRef.current);
@@ -935,6 +936,7 @@ travelandleisure
         setRunId(null);
         setResults(searchResults || []);
         setProgress(100);
+        setItemsProcessed(0);
         setUploadedReelIds(new Set());
         showExecutionResult("SUCCEEDED", msg || `Successfully retrieved ${total} reels`, null, total, searchRunId);
       } else if (status === "FAILED" || status === "TIMED-OUT") {

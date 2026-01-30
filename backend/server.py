@@ -632,6 +632,20 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
             )
             status_data = status_response.json()
             status = status_data["data"]["status"]
+            dataset_id = status_data["data"].get("defaultDatasetId")
+            
+            # Try to get current items count from dataset (for progress tracking)
+            items_processed = 0
+            if dataset_id and status == "RUNNING":
+                try:
+                    # Get dataset info to see how many items collected so far
+                    dataset_info = await client.get(
+                        f"https://api.apify.com/v2/datasets/{dataset_id}?token={APIFY_TOKEN}"
+                    )
+                    if dataset_info.status_code == 200:
+                        items_processed = dataset_info.json().get("data", {}).get("itemCount", 0)
+                except:
+                    pass
             
             # Calculate progress and ETA
             elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()

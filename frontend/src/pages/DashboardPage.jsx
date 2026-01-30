@@ -652,13 +652,38 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [onlyPostsNewerThan, setOnlyPostsNewerThan] = useState("");
   
   const [searching, setSearching] = useState(false);
-  const [runId, setRunId] = useState(null);
-  const [progress, setProgress] = useState(0);
+  const [runId, setRunId] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ig_reel_finder_runId");
+      return saved || null;
+    } catch {
+      return null;
+    }
+  });
+  const [progress, setProgress] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ig_reel_finder_progress");
+      return saved ? parseInt(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [estimatedTime, setEstimatedTime] = useState(0);
+  const [itemsProcessed, setItemsProcessed] = useState(0);
   const pollIntervalRef = useRef(null);
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [executionStatus, setExecutionStatus] = useState(null);
+
+  // Initialize searching state from localStorage
+  const [searching, setSearching] = useState(() => {
+    try {
+      const savedRunId = localStorage.getItem("ig_reel_finder_runId");
+      return !!savedRunId;
+    } catch {
+      return false;
+    }
+  });
 
   // Initialize results from localStorage
   const [results, setResults] = useState(() => {

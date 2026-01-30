@@ -508,10 +508,13 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
     if not APIFY_TOKEN:
         raise HTTPException(status_code=500, detail="Apify token not configured")
     
+    run_info = active_runs.get(run_id, {})
+    actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
+    
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             abort_response = await client.post(
-                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs/{run_id}/abort?token={APIFY_TOKEN}"
+                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/abort?token={APIFY_TOKEN}"
             )
             
             if run_id in active_runs:

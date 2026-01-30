@@ -432,7 +432,48 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                         progress=100,
                         estimated_seconds_remaining=0,
                         results=results,
-                        total=len(results)
+                        total=len(results),
+                        message=f"Successfully retrieved {len(results)} reels" if results else "Search completed but no matching reels found"
+                    )
+                elif status == "FAILED":
+                    if run_id in active_runs:
+                        del active_runs[run_id]
+                    return SearchStatusResponse(
+                        status=status,
+                        progress=progress,
+                        message="Search failed",
+                        error=ExecutionError(
+                            error_type="ACTOR_FAILED",
+                            error_message="The Apify actor failed to complete the search",
+                            error_code="APIFY_RUN_FAILED",
+                            possible_cause="The Instagram scraping actor encountered an error. This could be due to Instagram rate limiting, invalid usernames, or temporary Instagram API issues.",
+                            suggested_solution="1. Verify the username(s) are correct and the accounts are public. 2. Try with fewer usernames. 3. Wait a few minutes and try again.",
+                            technical_details=f"Run ID: {run_id}, Status: {status}"
+                        )
+                    )
+                elif status == "ABORTED":
+                    if run_id in active_runs:
+                        del active_runs[run_id]
+                    return SearchStatusResponse(
+                        status=status,
+                        progress=progress,
+                        message="Search was stopped by user"
+                    )
+                elif status == "TIMED-OUT":
+                    if run_id in active_runs:
+                        del active_runs[run_id]
+                    return SearchStatusResponse(
+                        status=status,
+                        progress=progress,
+                        message="Search timed out",
+                        error=ExecutionError(
+                            error_type="TIMEOUT",
+                            error_message="The search took too long and was automatically stopped",
+                            error_code="APIFY_TIMEOUT",
+                            possible_cause="The search requested too many results or Instagram is rate limiting requests",
+                            suggested_solution="Try searching for fewer results (e.g., 25 instead of 100) or search for fewer usernames at once.",
+                            technical_details=f"Run ID: {run_id}, Status: {status}"
+                        )
                     )
                 else:
                     if run_id in active_runs:
@@ -440,7 +481,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     return SearchStatusResponse(
                         status=status,
                         progress=progress,
-                        message=f"Search {status.lower()}"
+                        message=f"Search ended with status: {status}"
                     )
             
             return SearchStatusResponse(

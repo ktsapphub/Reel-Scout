@@ -399,7 +399,7 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
         cache_key = generate_cache_key("hashtag", hashtag=hashtag, max_results=request.max_results)
         apify_input = {
             "hashtags": [hashtag],
-            "resultsType": "posts",
+            "resultsType": "reels",  # Only get reels, not posts/images
             "resultsLimit": request.max_results
         }
     else:

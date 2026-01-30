@@ -1374,9 +1374,19 @@ travelandleisure
                 <div className="min-w-[200px]">
                   <Label className="text-slate-700 font-medium">Max Results</Label>
                   <div className="flex items-center gap-2 mt-2">
-                    <Select value={MAX_RESULTS_OPTIONS.includes(maxResults) ? maxResults.toString() : "custom"} onValueChange={(v) => {
-                      if (v !== "custom") setMaxResults(parseInt(v));
-                    }}>
+                    <Select 
+                      value={MAX_RESULTS_OPTIONS.includes(maxResults) ? maxResults.toString() : "custom"} 
+                      onValueChange={(v) => {
+                        if (v === "custom") {
+                          // Set to a non-standard value to show input
+                          if (MAX_RESULTS_OPTIONS.includes(maxResults)) {
+                            setMaxResults(15); // Default custom value
+                          }
+                        } else {
+                          setMaxResults(parseInt(v));
+                        }
+                      }}
+                    >
                       <SelectTrigger className="h-10 border-slate-200 w-[120px]" data-testid="max-results-select"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {MAX_RESULTS_OPTIONS.map((opt) => (<SelectItem key={opt} value={opt.toString()}>{opt}</SelectItem>))}

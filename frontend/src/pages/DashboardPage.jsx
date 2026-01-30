@@ -1200,10 +1200,11 @@ travelandleisure
                                 </span>
                               </label>
                             </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="max-w-xs">Upload a CSV or TXT file with usernames (one per line or comma-separated)</p>
-                          </TooltipContent>
-                        </Tooltip>
+                            <TooltipContent>
+                              <p className="max-w-xs">Upload a CSV or TXT file with usernames (one per line or comma-separated)</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-2">

@@ -945,6 +945,7 @@ travelandleisure
         setSearching(false);
         setRunId(null);
         setProgress(0);
+        setItemsProcessed(0);
         showExecutionResult(status, msg, error, 0, searchRunId);
       } else if (status === "ABORTED") {
         clearInterval(pollIntervalRef.current);
@@ -952,10 +953,43 @@ travelandleisure
         setSearching(false);
         setRunId(null);
         setProgress(0);
+        setItemsProcessed(0);
         showExecutionResult("ABORTED", "Search was stopped by user", null, 0, searchRunId);
       }
     } catch (error) {
       console.error("Poll error:", error);
+    }
+  };
+
+  // Handle stop search with partial results
+  const handleStopSearch = async () => {
+    if (!runId) return;
+    
+    try {
+      const response = await api.post(`/reels/search/stop/${runId}`);
+      const { partial_results, items_processed: itemsCount, results_count, message } = response.data;
+      
+      // Stop polling
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+      setSearching(false);
+      setRunId(null);
+      setProgress(0);
+      setItemsProcessed(0);
+      
+      // Load partial results if any
+      if (partial_results && partial_results.length > 0) {
+        setResults(partial_results);
+        setUploadedReelIds(new Set());
+        toast.success(`Stopped search. Retrieved ${results_count} reels from ${itemsCount} items processed.`);
+        showExecutionResult("PARTIAL", message, null, results_count, null);
+      } else {
+        toast.info("Search stopped. No results were collected yet.");
+        showExecutionResult("ABORTED", "Search stopped before any results were collected", null, 0, null);
+      }
+    } catch (error) {
+      console.error("Stop error:", error);
+      toast.error("Failed to stop search");
     }
   };
 

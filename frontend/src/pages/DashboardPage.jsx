@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Collapsible,
@@ -64,12 +63,145 @@ import {
   Maximize2,
   Minimize2,
   Copy,
+  Cloud,
+  HardDrive,
+  Check,
 } from "lucide-react";
 import axios from "axios";
 
 const MAX_RESULTS_OPTIONS = [10, 25, 50, 100, 250];
 const RESULTS_PER_PAGE = 10;
 const MAX_USERNAME_FIELDS = 10;
+
+// Upload Progress Modal Component
+function UploadProgressModal({ isOpen, onClose, uploadStatus }) {
+  if (!uploadStatus) return null;
+
+  const { total, completed, failed, items, isUploading } = uploadStatus;
+  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const allDone = !isUploading && (completed + failed) === total;
+  const totalSize = items
+    .filter(i => i.status === "completed")
+    .reduce((sum, i) => sum + (i.file_size_bytes || 0), 0);
+
+  const formatSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader className="pb-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <Cloud className={`w-6 h-6 ${allDone ? (failed > 0 ? "text-amber-600" : "text-green-600") : "text-blue-600"}`} />
+            <DialogTitle className="text-lg font-semibold">
+              {isUploading ? "Uploading to Cloudinary..." : (allDone ? "Upload Complete" : "Upload Status")}
+            </DialogTitle>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Overall Progress */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">
+                {isUploading ? `Uploading ${completed + 1} of ${total}...` : `${completed} of ${total} completed`}
+              </span>
+              <span className="font-medium text-slate-900">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+
+          {/* Stats */}
+          {allDone && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-green-50 rounded-lg text-center">
+                <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-green-700">{completed}</p>
+                <p className="text-xs text-green-600">Uploaded</p>
+              </div>
+              {failed > 0 && (
+                <div className="p-3 bg-red-50 rounded-lg text-center">
+                  <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-red-700">{failed}</p>
+                  <p className="text-xs text-red-600">Failed</p>
+                </div>
+              )}
+              <div className="p-3 bg-blue-50 rounded-lg text-center">
+                <HardDrive className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-blue-700">{formatSize(totalSize)}</p>
+                <p className="text-xs text-blue-600">Total Size</p>
+              </div>
+            </div>
+          )}
+
+          {/* Individual Items */}
+          <ScrollArea className="h-[200px] border border-slate-200 rounded-lg">
+            <div className="p-3 space-y-2">
+              {items.map((item, idx) => (
+                <div
+                  key={item.reel_id || idx}
+                  className={`flex items-center justify-between p-2 rounded-lg ${
+                    item.status === "completed" ? "bg-green-50" :
+                    item.status === "failed" ? "bg-red-50" :
+                    item.status === "uploading" ? "bg-blue-50" :
+                    "bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {item.status === "completed" && <CheckCircle2 className="w-4 h-4 text-green-600" />}
+                    {item.status === "failed" && <XCircle className="w-4 h-4 text-red-600" />}
+                    {item.status === "uploading" && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
+                    {item.status === "pending" && <Clock className="w-4 h-4 text-slate-400" />}
+                    <span className="text-sm font-medium text-slate-700">
+                      Video #{idx + 1}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {item.status === "completed" && item.file_size_display && (
+                      <Badge variant="outline" className="text-xs bg-white">
+                        {item.file_size_display}
+                      </Badge>
+                    )}
+                    {item.status === "failed" && (
+                      <span className="text-xs text-red-600 max-w-[150px] truncate">
+                        {item.error || "Upload failed"}
+                      </span>
+                    )}
+                    {item.status === "completed" && item.cloudinary_url && (
+                      <a
+                        href={item.cloudinary_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isUploading}
+            className="border-slate-200"
+          >
+            {isUploading ? "Uploading..." : "Close"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // Execution Status Modal Component
 function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
@@ -149,7 +281,6 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
             {/* Error Details */}
             {error && (
               <div className="space-y-4">
-                {/* Error Type & Code */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-slate-50 rounded-lg">
                     <Label className="text-xs text-slate-500 uppercase tracking-wide">Error Type</Label>
@@ -161,7 +292,6 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
                   </div>
                 </div>
 
-                {/* Error Message */}
                 <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
@@ -172,7 +302,6 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
                   </div>
                 </div>
 
-                {/* Possible Cause */}
                 {error.possible_cause && (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex items-start gap-3">
@@ -185,7 +314,6 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
                   </div>
                 )}
 
-                {/* Suggested Solution */}
                 {error.suggested_solution && (
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-start gap-3">
@@ -198,24 +326,18 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
                   </div>
                 )}
 
-                {/* Technical Details (Collapsible) */}
                 {error.technical_details && (
                   <Collapsible open={showTechnicalDetails} onOpenChange={setShowTechnicalDetails}>
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
                         className="w-full justify-between text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                        data-testid="toggle-technical-details"
                       >
                         <span className="flex items-center gap-2">
                           <Code className="w-4 h-4" />
                           Technical Details
                         </span>
-                        {showTechnicalDetails ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
+                        {showTechnicalDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
@@ -239,7 +361,6 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
               </div>
             )}
 
-            {/* Run ID for reference */}
             {run_id && (
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <div>
@@ -260,22 +381,11 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
         </ScrollArea>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-slate-200"
-            data-testid="close-status-modal"
-          >
+          <Button variant="outline" onClick={onClose} className="border-slate-200">
             Close
           </Button>
           {isError && (
-            <Button
-              onClick={() => {
-                onClose();
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              data-testid="try-again-btn"
-            >
+            <Button onClick={onClose} className="bg-blue-600 hover:bg-blue-700 text-white">
               Try Again
             </Button>
           )}
@@ -312,8 +422,13 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [expandedTranscripts, setExpandedTranscripts] = useState(new Set());
 
-  // Action states
+  // Upload state
   const [uploading, setUploading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const [uploadedReelIds, setUploadedReelIds] = useState(new Set());
+
+  // Export state
   const [exporting, setExporting] = useState(false);
 
   const api = axios.create({
@@ -330,6 +445,10 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     (currentPage - 1) * RESULTS_PER_PAGE,
     currentPage * RESULTS_PER_PAGE
   );
+
+  // Check if any selected items have been uploaded
+  const hasUploadedSelected = Array.from(selectedIds).some(id => uploadedReelIds.has(id));
+  const allSelectedUploaded = selectedIds.size > 0 && Array.from(selectedIds).every(id => uploadedReelIds.has(id));
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -385,6 +504,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
         setRunId(null);
         setResults(searchResults || []);
         setProgress(100);
+        setUploadedReelIds(new Set()); // Reset uploaded tracking
         showExecutionResult("SUCCEEDED", msg || `Successfully retrieved ${total} reels`, null, total, searchRunId);
       } else if (status === "FAILED" || status === "TIMED-OUT") {
         clearInterval(pollIntervalRef.current);
@@ -444,6 +564,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     setMessage("");
     setResults([]);
     setSelectedIds(new Set());
+    setUploadedReelIds(new Set());
     setCurrentPage(1);
     setProgress(0);
     setEstimatedTime(maxResults * 2.5);
@@ -467,7 +588,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       }
       
       if (status === "CACHED") {
-        // Cached results - immediately poll to get them
         setRunId(run_id);
         toast.success("Found cached results!");
         pollSearchStatus(run_id);
@@ -483,7 +603,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       setRunId(run_id);
       toast.info("Search started...");
       
-      // Start polling
       pollIntervalRef.current = setInterval(() => {
         pollSearchStatus(run_id);
       }, 3000);
@@ -558,20 +677,44 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       return;
     }
 
+    // Initialize upload status
+    const initialItems = selected.map((r, idx) => ({
+      reel_id: r.id,
+      status: idx === 0 ? "uploading" : "pending",
+      progress: 0,
+      cloudinary_url: "",
+      cloudinary_public_id: "",
+      file_size_bytes: 0,
+      file_size_display: "",
+      error: ""
+    }));
+
+    setUploadStatus({
+      total: selected.length,
+      completed: 0,
+      failed: 0,
+      items: initialItems,
+      isUploading: true
+    });
+    setShowUploadModal(true);
     setUploading(true);
+
     try {
       const response = await api.post("/reels/upload", {
         reel_ids: selected.map((r) => r.id),
         reels: selected,
       });
 
-      const { uploaded, errors } = response.data;
+      const { total, completed, failed, items } = response.data;
       
-      if (uploaded && uploaded.length > 0) {
+      // Update results with cloudinary info
+      const newUploadedIds = new Set(uploadedReelIds);
+      if (items && items.length > 0) {
         setResults((prev) =>
           prev.map((r) => {
-            const uploadedItem = uploaded.find((u) => u.reel_id === r.id);
+            const uploadedItem = items.find((u) => u.reel_id === r.id && u.status === "completed");
             if (uploadedItem) {
+              newUploadedIds.add(r.id);
               return {
                 ...r,
                 cloudinary_url: uploadedItem.cloudinary_url,
@@ -581,26 +724,43 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
             return r;
           })
         );
-        toast.success(`Uploaded ${uploaded.length} reels to Cloudinary`);
+        setUploadedReelIds(newUploadedIds);
       }
 
-      if (errors && errors.length > 0) {
-        toast.error(`${errors.length} uploads failed`);
+      // Update upload status
+      setUploadStatus({
+        total,
+        completed,
+        failed,
+        items,
+        isUploading: false
+      });
+
+      if (completed > 0) {
+        toast.success(`Uploaded ${completed} video${completed > 1 ? 's' : ''} to Cloudinary`);
       }
+      if (failed > 0) {
+        toast.error(`${failed} upload${failed > 1 ? 's' : ''} failed`);
+      }
+
     } catch (error) {
       toast.error("Upload failed");
+      setUploadStatus(prev => ({
+        ...prev,
+        isUploading: false,
+        items: prev?.items?.map(i => ({...i, status: "failed", error: "Request failed"})) || []
+      }));
     } finally {
       setUploading(false);
     }
   };
 
-  const handleExport = async (exportAll = false) => {
-    const toExport = exportAll
-      ? results
-      : results.filter((r) => selectedIds.has(r.id));
+  const handleExport = async () => {
+    // Only export items that have been uploaded to Cloudinary
+    const toExport = results.filter((r) => selectedIds.has(r.id) && uploadedReelIds.has(r.id));
 
     if (toExport.length === 0) {
-      toast.error("No reels to export");
+      toast.error("No uploaded reels to export. Upload to Cloudinary first.");
       return;
     }
 
@@ -608,7 +768,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     try {
       const response = await api.post(
         "/reels/export",
-        { reels: toExport, selected_only: !exportAll },
+        { reels: toExport, selected_only: true },
         { responseType: "blob" }
       );
 
@@ -629,7 +789,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success(`Exported ${toExport.length} reels`);
+      toast.success(`Exported ${toExport.length} reels with Cloudinary URLs`);
     } catch (error) {
       toast.error("Export failed");
     } finally {
@@ -646,11 +806,16 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Execution Status Modal */}
+      {/* Modals */}
       <ExecutionStatusModal
         isOpen={showStatusModal}
         onClose={() => setShowStatusModal(false)}
         executionStatus={executionStatus}
+      />
+      <UploadProgressModal
+        isOpen={showUploadModal}
+        onClose={() => !uploading && setShowUploadModal(false)}
+        uploadStatus={uploadStatus}
       />
 
       {/* Header */}
@@ -792,19 +957,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                       <Clock className="w-4 h-4 mr-1" />
                       Most Recent
                     </Button>
-                    <Button
-                      type="button"
-                      variant={dateMode === "range" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setDateMode("range")}
-                      className={dateMode === "range" ? "bg-blue-600 hover:bg-blue-700" : "border-slate-200"}
-                      disabled
-                      data-testid="date-mode-range"
-                    >
-                      <Calendar className="w-4 h-4 mr-1" />
-                      Date Range
-                      <Badge variant="outline" className="ml-2 text-xs">Soon</Badge>
-                    </Button>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
                     Retrieves the most recent reels up to your selected max results
@@ -867,19 +1019,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                     >
                       <Clock className="w-4 h-4 mr-1" />
                       Most Recent
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={dateMode === "range" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setDateMode("range")}
-                      className={dateMode === "range" ? "bg-blue-600 hover:bg-blue-700" : "border-slate-200"}
-                      disabled
-                      data-testid="hashtag-date-mode-range"
-                    >
-                      <Calendar className="w-4 h-4 mr-1" />
-                      Date Range
-                      <Badge variant="outline" className="ml-2 text-xs">Soon</Badge>
                     </Button>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
@@ -1000,28 +1139,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               </div>
 
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleExport(false)}
-                  disabled={exporting || selectedIds.size === 0}
-                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
-                  data-testid="export-selected-btn"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Selected
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleExport(true)}
-                  disabled={exporting}
-                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
-                  data-testid="export-all-btn"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export All
-                </Button>
+                {/* Upload Button - Always visible when items selected */}
                 <Button
                   size="sm"
                   onClick={handleUpload}
@@ -1032,10 +1150,34 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                   {uploading ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Cloud className="w-4 h-4 mr-2" />
                   )}
                   Upload to Cloudinary
                 </Button>
+
+                {/* Export Button - Only visible after uploads complete */}
+                {hasUploadedSelected && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    disabled={exporting || !allSelectedUploaded}
+                    className="border-slate-200 text-slate-700 hover:bg-slate-50"
+                    data-testid="export-csv-btn"
+                  >
+                    {exporting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    Export CSV
+                    {!allSelectedUploaded && selectedIds.size > 0 && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        Upload first
+                      </Badge>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -1049,6 +1191,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                   onToggleSelect={() => toggleSelect(reel.id)}
                   isExpanded={expandedTranscripts.has(reel.id)}
                   onToggleTranscript={() => toggleTranscript(reel.id)}
+                  isUploaded={uploadedReelIds.has(reel.id)}
                   index={(currentPage - 1) * RESULTS_PER_PAGE + index + 1}
                 />
               ))}
@@ -1117,7 +1260,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
 }
 
 // Reel Row Component
-function ReelRow({ reel, isSelected, onToggleSelect, isExpanded, onToggleTranscript, index }) {
+function ReelRow({ reel, isSelected, onToggleSelect, isExpanded, onToggleTranscript, isUploaded, index }) {
   const videoUrl = reel.downloaded_video_url || reel.original_video_url;
   const truncatedTranscript =
     reel.video_transcript?.length > 100
@@ -1125,17 +1268,25 @@ function ReelRow({ reel, isSelected, onToggleSelect, isExpanded, onToggleTranscr
       : reel.video_transcript;
 
   return (
-    <Card className="border-slate-200 overflow-hidden hover-lift" data-testid={`reel-row-${index}`}>
+    <Card className={`border-slate-200 overflow-hidden hover-lift ${isUploaded ? 'ring-2 ring-green-200' : ''}`} data-testid={`reel-row-${index}`}>
       <div className="flex flex-col lg:flex-row">
         {/* Video Player - Left */}
         <div className="lg:w-72 flex-shrink-0 bg-slate-900 p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={onToggleSelect}
-              data-testid={`select-reel-${index}`}
-            />
-            <span className="text-white text-sm font-medium">#{index}</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onToggleSelect}
+                data-testid={`select-reel-${index}`}
+              />
+              <span className="text-white text-sm font-medium">#{index}</span>
+            </div>
+            {isUploaded && (
+              <Badge className="bg-green-500 text-white text-xs">
+                <Check className="w-3 h-3 mr-1" />
+                Uploaded
+              </Badge>
+            )}
           </div>
           {videoUrl ? (
             <video
@@ -1241,7 +1392,6 @@ function ReelRow({ reel, isSelected, onToggleSelect, isExpanded, onToggleTranscr
                       size="sm"
                       onClick={onToggleTranscript}
                       className="text-blue-600 text-xs h-6 px-2"
-                      data-testid={`toggle-transcript-${reel.id}`}
                     >
                       {isExpanded ? (
                         <>
@@ -1269,6 +1419,7 @@ function ReelRow({ reel, isSelected, onToggleSelect, isExpanded, onToggleTranscr
                 </Label>
                 <div className="flex items-center gap-2">
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                    <Check className="w-3 h-3 mr-1" />
                     Uploaded
                   </Badge>
                   <a
@@ -1277,7 +1428,7 @@ function ReelRow({ reel, isSelected, onToggleSelect, isExpanded, onToggleTranscr
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
                   >
-                    View
+                    View on Cloudinary
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>

@@ -1,87 +1,153 @@
 {
   "summary": {
-    "total_tests": 13,
-    "passed_tests": 11,
-    "success_rate": "84.6%"
+    "total_tests": 24,
+    "passed_tests": 22,
+    "success_rate": "91.7%"
   },
   "test_results": [
     {
       "test": "Login with valid credentials",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:17:26.052939"
+      "timestamp": "2026-01-30T16:31:48.319912"
     },
     {
       "test": "Login with invalid password",
       "success": true,
       "details": "Status: 401",
-      "timestamp": "2026-01-30T16:17:26.097887"
+      "timestamp": "2026-01-30T16:31:48.382193"
     },
     {
       "test": "Login with non-allowlist email",
       "success": true,
       "details": "Status: 403",
-      "timestamp": "2026-01-30T16:17:26.137367"
+      "timestamp": "2026-01-30T16:31:48.427083"
     },
     {
       "test": "Get current user info",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:17:26.176617"
+      "timestamp": "2026-01-30T16:31:48.462454"
     },
     {
       "test": "Search reels by username",
       "success": false,
       "details": "Error: HTTPSConnectionPool(host='contentjar.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
-      "timestamp": "2026-01-30T16:17:56.234448"
+      "timestamp": "2026-01-30T16:32:18.515108"
     },
     {
       "test": "Search reels by URL (should show limitation)",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:17:56.324511"
+      "timestamp": "2026-01-30T16:32:18.596601"
     },
     {
       "test": "URL search limitation message",
       "success": true,
       "details": "Message: Current Apify actor does not support direct URL mode. Use Username or Hashtag, or switch actors.",
-      "timestamp": "2026-01-30T16:17:56.325043"
+      "timestamp": "2026-01-30T16:32:18.597202"
     },
     {
       "test": "Search reels by hashtag (should show limitation)",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:17:56.368105"
+      "timestamp": "2026-01-30T16:32:18.637677"
     },
     {
       "test": "Hashtag search limitation message",
       "success": true,
       "details": "Message: Hashtag mode requires a hashtag-capable actor. Use Username mode or add a second Apify actor for hashtags.",
-      "timestamp": "2026-01-30T16:17:56.368759"
+      "timestamp": "2026-01-30T16:32:18.638327"
     },
     {
       "test": "Search with invalid type",
       "success": true,
       "details": "Status: 400",
-      "timestamp": "2026-01-30T16:17:56.407409"
+      "timestamp": "2026-01-30T16:32:18.717472"
     },
     {
       "test": "Username search without usernames",
       "success": true,
       "details": "Status: 400",
-      "timestamp": "2026-01-30T16:17:56.447911"
+      "timestamp": "2026-01-30T16:32:18.756354"
+    },
+    {
+      "test": "Start async username search",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:32:19.189235"
+    },
+    {
+      "test": "Start async URL search (should show limitation)",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:32:19.234378"
+    },
+    {
+      "test": "Async URL search limitation",
+      "success": true,
+      "details": "Status: NOT_SUPPORTED",
+      "timestamp": "2026-01-30T16:32:19.235087"
+    },
+    {
+      "test": "Start async hashtag search (should show limitation)",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:32:19.270797"
+    },
+    {
+      "test": "Async hashtag search limitation",
+      "success": true,
+      "details": "Status: NOT_SUPPORTED",
+      "timestamp": "2026-01-30T16:32:19.271329"
+    },
+    {
+      "test": "Get async search status",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:32:19.485104"
+    },
+    {
+      "test": "Search status response format",
+      "success": true,
+      "details": "Status: RUNNING, Progress: 2%",
+      "timestamp": "2026-01-30T16:32:19.485731"
+    },
+    {
+      "test": "Stop async search",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-30T16:32:20.019751"
+    },
+    {
+      "test": "Search stop functionality",
+      "success": true,
+      "details": "Status: ABORTED",
+      "timestamp": "2026-01-30T16:32:20.020519"
+    },
+    {
+      "test": "Async username search without usernames",
+      "success": true,
+      "details": "Status: 400",
+      "timestamp": "2026-01-30T16:32:20.061467"
+    },
+    {
+      "test": "Async search with invalid type",
+      "success": true,
+      "details": "Status: 400",
+      "timestamp": "2026-01-30T16:32:20.101612"
     },
     {
       "test": "Export reels to CSV",
       "success": true,
       "details": "Status: 200",
-      "timestamp": "2026-01-30T16:17:56.488987"
+      "timestamp": "2026-01-30T16:32:20.141294"
     },
     {
       "test": "Export reels to CSV",
       "success": false,
       "details": "Error: Expecting value: line 1 column 1 (char 0)",
-      "timestamp": "2026-01-30T16:17:56.489047"
+      "timestamp": "2026-01-30T16:32:20.141354"
     }
   ]
 }

@@ -1105,6 +1105,117 @@ async def get_audit_logs(user_email: str = Depends(get_current_user)):
     logs = await db.audit_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(100)
     return {"logs": logs}
 
+@api_router.get("/search-history")
+async def get_search_history(user_email: str = Depends(get_current_user)):
+    """Get list of cached searches from Apify key-value store"""
+    store_id = await get_or_create_cache_store()
+    if not store_id:
+        return {"history": [], "store_id": None, "store_name": APIFY_CACHE_STORE_NAME}
+    
+    history = []
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            # List all keys in the store
+            response = await client.get(
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/keys?token={APIFY_TOKEN}"
+            )
+            if response.status_code == 200:
+                keys_data = response.json()
+                keys = keys_data.get("data", {}).get("items", [])
+                
+                for key_item in keys:
+                    key = key_item.get("key", "")
+                    
+                    # Parse the cache key to extract search info
+                    search_type = "unknown"
+                    search_term = ""
+                    
+                    if key.startswith("username_"):
+                        search_type = "username"
+                    elif key.startswith("hashtag_"):
+                        search_type = "hashtag"
+                    
+                    # Get the cached data to extract more info
+                    try:
+                        record_response = await client.get(
+                            f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{key}?token={APIFY_TOKEN}"
+                        )
+                        if record_response.status_code == 200:
+                            record_data = record_response.json()
+                            cached_at = record_data.get("cached_at", "")
+                            results = record_data.get("results", [])
+                            results_count = len(results)
+                            
+                            # Try to extract search terms from results
+                            if results and search_type == "username":
+                                usernames = list(set(r.get("owner_username", "") for r in results if r.get("owner_username")))
+                                search_term = ", ".join(usernames[:3])
+                                if len(usernames) > 3:
+                                    search_term += f" (+{len(usernames) - 3} more)"
+                            elif results and search_type == "hashtag":
+                                # For hashtag, we stored the hashtag in the key
+                                search_term = "hashtag search"
+                            
+                            history.append({
+                                "cache_key": key,
+                                "search_type": search_type,
+                                "search_term": search_term,
+                                "results_count": results_count,
+                                "cached_at": cached_at,
+                                "store_id": store_id
+                            })
+                    except Exception as e:
+                        logger.error(f"Error fetching record {key}: {e}")
+                        continue
+                        
+        except Exception as e:
+            logger.error(f"Error listing cache keys: {e}")
+    
+    # Sort by cached_at descending
+    history.sort(key=lambda x: x.get("cached_at", ""), reverse=True)
+    
+    return {
+        "history": history,
+        "store_id": store_id,
+        "store_name": APIFY_CACHE_STORE_NAME
+    }
+
+@api_router.get("/search-history/{cache_key}")
+async def get_cached_search(cache_key: str, user_email: str = Depends(get_current_user)):
+    """Get cached search results by cache key"""
+    store_id = await get_or_create_cache_store()
+    if not store_id:
+        raise HTTPException(status_code=404, detail="Cache store not found")
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.get(
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={APIFY_TOKEN}"
+            )
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                
+                # Convert to ReelResult objects
+                reel_results = []
+                for item in results:
+                    try:
+                        reel_results.append(ReelResult(**item))
+                    except Exception as e:
+                        logger.error(f"Error converting cached result: {e}")
+                
+                return {
+                    "cache_key": cache_key,
+                    "cached_at": data.get("cached_at", ""),
+                    "results": reel_results,
+                    "total": len(reel_results)
+                }
+            else:
+                raise HTTPException(status_code=404, detail="Cached search not found")
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching cached search: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 

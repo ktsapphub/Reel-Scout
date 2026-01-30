@@ -731,14 +731,43 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
 
 @api_router.post("/reels/search/stop/{run_id}")
 async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
+    """Stop a running search and retrieve partial results"""
     if not APIFY_TOKEN:
         raise HTTPException(status_code=500, detail="Apify token not configured")
     
     run_info = active_runs.get(run_id, {})
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
+    cache_key = run_info.get("cache_key")
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
+            # First, try to get any partial results before aborting
+            partial_results = []
+            items_processed = 0
+            
+            try:
+                # Get run status to find dataset ID
+                status_response = await client.get(
+                    f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={APIFY_TOKEN}"
+                )
+                status_data = status_response.json()
+                dataset_id = status_data["data"].get("defaultDatasetId")
+                
+                if dataset_id:
+                    # Get partial results from dataset
+                    dataset_response = await client.get(
+                        f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}"
+                    )
+                    if dataset_response.status_code == 200:
+                        items = dataset_response.json()
+                        items_processed = len(items)
+                        if items:
+                            partial_results = await process_apify_results(items, user_email)
+                            logger.info(f"Retrieved {len(partial_results)} partial results from {items_processed} items before stopping")
+            except Exception as e:
+                logger.warning(f"Could not retrieve partial results: {e}")
+            
+            # Now abort the run
             abort_response = await client.post(
                 f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/abort?token={APIFY_TOKEN}"
             )
@@ -746,9 +775,20 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
             if run_id in active_runs:
                 del active_runs[run_id]
             
-            await log_audit("search_stopped", user_email, {"run_id": run_id})
+            await log_audit("search_stopped", user_email, {
+                "run_id": run_id,
+                "partial_results_count": len(partial_results),
+                "items_processed": items_processed
+            })
             
-            return {"status": "ABORTED", "message": "Search stopped successfully"}
+            # Return partial results with the response
+            return {
+                "status": "ABORTED",
+                "message": f"Search stopped. Retrieved {len(partial_results)} reels from {items_processed} items processed.",
+                "partial_results": [r.model_dump() for r in partial_results],
+                "items_processed": items_processed,
+                "results_count": len(partial_results)
+            }
             
         except httpx.HTTPError as e:
             logger.error(f"Apify abort error: {e}")

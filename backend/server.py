@@ -216,34 +216,37 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     if not APIFY_TOKEN:
         raise HTTPException(status_code=500, detail="Apify token not configured")
     
-    # Build Apify input
-    apify_input = {
-        "resultsLimit": request.max_results,
-        "skipPinnedPosts": True,
-        "includeSharesCount": False,
-        "includeTranscript": True,
-        "includeDownloadedVideo": True
-    }
+    actor_id = APIFY_ACTOR_ID  # Default to username actor
+    apify_input = {}
     
     if request.search_type == "username":
         if not request.usernames or len(request.usernames) == 0:
             raise HTTPException(status_code=400, detail="At least one username required")
-        apify_input["username"] = request.usernames
+        apify_input = {
+            "username": request.usernames,
+            "resultsLimit": request.max_results,
+            "skipPinnedPosts": True,
+            "includeSharesCount": False,
+            "includeTranscript": True,
+            "includeDownloadedVideo": True
+        }
     elif request.search_type == "url":
         return StartSearchResponse(
             run_id="",
             status="NOT_SUPPORTED",
-            message="Current Apify actor does not support direct URL mode. Use Username or Hashtag, or switch actors."
+            message="Current Apify actor does not support direct URL mode. Use Username or Hashtag search instead."
         )
     elif request.search_type == "hashtag":
         if not request.hashtag:
             raise HTTPException(status_code=400, detail="Hashtag required")
-        # For now, hashtag also uses username search with hashtag as username prefix
-        return StartSearchResponse(
-            run_id="",
-            status="NOT_SUPPORTED",
-            message="Hashtag mode requires a hashtag-capable actor. Use Username mode or add a second Apify actor for hashtags."
-        )
+        # Use hashtag actor
+        actor_id = APIFY_HASHTAG_ACTOR_ID
+        hashtag = request.hashtag.replace("#", "").strip()
+        apify_input = {
+            "hashtags": [hashtag],
+            "resultsType": "posts",
+            "resultsLimit": request.max_results
+        }
     else:
         raise HTTPException(status_code=400, detail="Invalid search type")
     
@@ -251,7 +254,7 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             run_response = await client.post(
-                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}/runs?token={APIFY_TOKEN}",
+                f"https://api.apify.com/v2/acts/{actor_id}/runs?token={APIFY_TOKEN}",
                 json=apify_input,
                 headers={"Content-Type": "application/json"}
             )
@@ -264,16 +267,19 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
                 "user_email": user_email,
                 "started_at": datetime.now(timezone.utc),
                 "max_results": request.max_results,
-                "search_type": request.search_type
+                "search_type": request.search_type,
+                "actor_id": actor_id
             }
             
-            logger.info(f"Started Apify run: {run_id}")
+            logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")
             
             await log_audit("search_started", user_email, {
                 "run_id": run_id,
                 "search_type": request.search_type,
                 "usernames": request.usernames,
-                "max_results": request.max_results
+                "hashtag": request.hashtag,
+                "max_results": request.max_results,
+                "actor_id": actor_id
             })
             
             return StartSearchResponse(run_id=run_id, status="RUNNING")

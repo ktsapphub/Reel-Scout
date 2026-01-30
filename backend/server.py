@@ -202,6 +202,22 @@ class UploadRequest(BaseModel):
     reel_ids: List[str]
     reels: List[Dict[str, Any]]
 
+class UploadProgressItem(BaseModel):
+    reel_id: str
+    status: str  # "pending", "uploading", "completed", "failed"
+    progress: int = 0
+    cloudinary_url: str = ""
+    cloudinary_public_id: str = ""
+    file_size_bytes: int = 0
+    file_size_display: str = ""
+    error: str = ""
+
+class UploadResponse(BaseModel):
+    total: int
+    completed: int
+    failed: int
+    items: List[UploadProgressItem]
+
 class ExportRequest(BaseModel):
     reels: List[Dict[str, Any]]
     selected_only: bool = False

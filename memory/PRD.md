@@ -96,8 +96,9 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 ## New Features (Jan 30, 2026)
 
 ### CSV Upload for Bulk Usernames
-- Located in Username search tab with "Import CSV" link
-- Accepts .csv and .txt files
+- Located in Username search tab with "Sample" and "Import CSV" links
+- **"Sample"** - Downloads a template CSV file with example usernames
+- **"Import CSV"** - Accepts .csv and .txt files
 - Parses usernames from various formats (comma/tab/semicolon separated)
 - Removes duplicates and invalid entries automatically
 - Limits to MAX_USERNAME_FIELDS (10) with warning for excess

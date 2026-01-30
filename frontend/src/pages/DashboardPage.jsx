@@ -1138,7 +1138,29 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <Label className="text-slate-700 font-medium">Instagram Username(s)</Label>
-                      <span className="text-xs text-slate-400">{usernames.length}/{MAX_USERNAME_FIELDS} fields • underscores allowed</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-400">{usernames.length}/{MAX_USERNAME_FIELDS} fields • underscores allowed</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept=".csv,.txt"
+                                onChange={handleCsvUpload}
+                                className="hidden"
+                                data-testid="csv-upload-input"
+                              />
+                              <span className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                                <FileUp className="w-3 h-3" />
+                                Import CSV
+                              </span>
+                            </label>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">Upload a CSV or TXT file with usernames (one per line or comma-separated)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       {usernames.map((username, index) => (
@@ -1155,11 +1177,18 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                         </div>
                       ))}
                     </div>
-                    {usernames.length < MAX_USERNAME_FIELDS && (
-                      <Button type="button" variant="outline" size="sm" onClick={addUsernameField} className="mt-2 border-dashed border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600" data-testid="add-username-btn">
-                        <Plus className="w-4 h-4 mr-1" />Add Username
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      {usernames.length < MAX_USERNAME_FIELDS && (
+                        <Button type="button" variant="outline" size="sm" onClick={addUsernameField} className="border-dashed border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600" data-testid="add-username-btn">
+                          <Plus className="w-4 h-4 mr-1" />Add Username
+                        </Button>
+                      )}
+                      {usernames.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setUsernames([""])} className="text-slate-500 hover:text-red-600">
+                          <X className="w-3 h-3 mr-1" />Clear All
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-slate-700 font-medium mb-2 block">Date Filter</Label>

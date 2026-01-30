@@ -50,6 +50,7 @@ APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
 APIFY_ACTOR_ID = "xMc5Ga1oCONPmWJIa"  # Username scraper
 APIFY_HASHTAG_ACTOR_ID = "reGe1ST3OBgYZSsZJ"  # Hashtag scraper
 APIFY_CACHE_STORE_NAME = "ig-reel-finder-cache"
+APIFY_HASHTAG_KV_STORE_ID = "SvuIw7S8Yl3wY5Lvb"  # Specific store for hashtag actor
 
 async def get_or_create_cache_store() -> str:
     """Get or create the key-value store for caching search results"""

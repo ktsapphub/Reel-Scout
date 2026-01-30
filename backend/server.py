@@ -205,6 +205,7 @@ class SearchStatusResponse(BaseModel):
     results: List[ReelResult] = []
     total: int = 0
     message: str = ""
+    error: Optional[ExecutionError] = None
 
 # Store active runs
 active_runs: Dict[str, Dict[str, Any]] = {}

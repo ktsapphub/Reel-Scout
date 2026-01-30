@@ -1072,21 +1072,6 @@ travelandleisure
     }
   };
 
-  const handleStopSearch = async () => {
-    if (!runId) return;
-    try {
-      await api.post(`/reels/search/stop/${runId}`);
-      if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
-      setSearching(false);
-      const stoppedRunId = runId;
-      setRunId(null);
-      setProgress(0);
-      showExecutionResult("ABORTED", "Search was stopped by user", null, 0, stoppedRunId);
-    } catch (error) {
-      toast.error("Failed to stop search");
-    }
-  };
-
   const toggleSelect = (id) => {
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) newSelected.delete(id);

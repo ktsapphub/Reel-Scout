@@ -1024,6 +1024,7 @@ travelandleisure
     setUploadedReelIds(new Set());
     setCurrentPage(1);
     setProgress(0);
+    setItemsProcessed(0);
     setEstimatedTime(maxResults * 2.5);
 
     try {

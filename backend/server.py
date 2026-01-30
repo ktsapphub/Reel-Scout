@@ -329,11 +329,51 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
             "includeDownloadedVideo": True
         }
     elif request.search_type == "url":
-        return StartSearchResponse(
-            run_id="",
-            status="NOT_SUPPORTED",
-            message="Current Apify actor does not support direct URL mode. Use Username or Hashtag search instead."
-        )
+        if not request.urls or len(request.urls) == 0:
+            raise HTTPException(status_code=400, detail="At least one profile URL required")
+        
+        # Extract usernames from profile URLs
+        extracted_usernames = []
+        for url in request.urls:
+            # Parse Instagram profile URL to get username
+            # Supports: instagram.com/username, instagram.com/username/, www.instagram.com/username
+            url = url.strip()
+            match = re.search(r'instagram\.com/([A-Za-z0-9._]+)/?(?:\?|$|#)?', url)
+            if match:
+                username = match.group(1)
+                # Filter out non-profile paths
+                if username.lower() not in ['p', 'reel', 'reels', 'stories', 'explore', 'direct', 'accounts']:
+                    extracted_usernames.append(username)
+            else:
+                # If not a URL, treat as username directly
+                if url and not url.startswith('http'):
+                    extracted_usernames.append(url.replace('@', ''))
+        
+        if not extracted_usernames:
+            return StartSearchResponse(
+                run_id="",
+                status="ERROR",
+                message="Could not extract any valid usernames from the provided URLs",
+                error=ExecutionError(
+                    error_type="INVALID_INPUT",
+                    error_message="No valid Instagram profile URLs found",
+                    error_code="URL_PARSE_ERROR",
+                    possible_cause="The URLs provided are not valid Instagram profile URLs",
+                    suggested_solution="Enter URLs in format: https://www.instagram.com/username",
+                    technical_details=f"Provided URLs: {request.urls}"
+                )
+            )
+        
+        cache_key = generate_cache_key("username", usernames=extracted_usernames, max_results=request.max_results)
+        apify_input = {
+            "username": extracted_usernames,
+            "resultsLimit": request.max_results,
+            "skipPinnedPosts": True,
+            "includeSharesCount": False,
+            "includeTranscript": True,
+            "includeDownloadedVideo": True
+        }
+        logger.info(f"Extracted usernames from URLs: {extracted_usernames}")
     elif request.search_type == "hashtag":
         if not request.hashtag:
             raise HTTPException(status_code=400, detail="Hashtag required")

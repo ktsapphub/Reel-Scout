@@ -184,10 +184,19 @@ def generate_content_slug(transcript: str) -> str:
     slug = re.sub(r'\s+', '-', slug.strip())
     return slug[:40] if slug else "reel"
 
+class ExecutionError(BaseModel):
+    error_type: str = ""
+    error_message: str = ""
+    error_code: str = ""
+    possible_cause: str = ""
+    suggested_solution: str = ""
+    technical_details: str = ""
+
 class StartSearchResponse(BaseModel):
     run_id: str
     status: str
     message: str = ""
+    error: Optional[ExecutionError] = None
 
 class SearchStatusResponse(BaseModel):
     status: str

@@ -459,9 +459,17 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
           error_message: msg,
           error_code: "ACTOR_LIMITATION",
           possible_cause: "The current Apify actor does not support this search mode",
-          suggested_solution: "Use Username mode instead, or contact your administrator to add a compatible actor.",
+          suggested_solution: "Use Username or Hashtag mode instead.",
           technical_details: `Search type: ${searchType}`
         }, 0, null);
+        return;
+      }
+      
+      if (status === "CACHED") {
+        // Cached results - immediately poll to get them
+        setRunId(run_id);
+        toast.success("Found cached results!");
+        pollSearchStatus(run_id);
         return;
       }
       

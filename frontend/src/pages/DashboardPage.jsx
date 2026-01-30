@@ -646,7 +646,10 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [urlInput, setUrlInput] = useState("");
   const [hashtagInput, setHashtagInput] = useState("");
   const [maxResults, setMaxResults] = useState(25);
-  const [dateMode, setDateMode] = useState("recent");
+  
+  // Advanced filter options
+  const [includeTaggedPosts, setIncludeTaggedPosts] = useState(false);
+  const [onlyPostsNewerThan, setOnlyPostsNewerThan] = useState("");
   
   const [searching, setSearching] = useState(false);
   const [runId, setRunId] = useState(null);

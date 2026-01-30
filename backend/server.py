@@ -49,6 +49,102 @@ USER_PASSWORD = "#Test1234"
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
 APIFY_ACTOR_ID = "xMc5Ga1oCONPmWJIa"  # Username scraper
 APIFY_HASHTAG_ACTOR_ID = "reGe1ST3OBgYZSsZJ"  # Hashtag scraper
+APIFY_CACHE_STORE_NAME = "ig-reel-finder-cache"
+
+async def get_or_create_cache_store() -> str:
+    """Get or create the key-value store for caching search results"""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            # Try to get existing store
+            response = await client.get(
+                f"https://api.apify.com/v2/key-value-stores?token={APIFY_TOKEN}&unnamed=false"
+            )
+            stores = response.json().get("data", {}).get("items", [])
+            
+            for store in stores:
+                if store.get("name") == APIFY_CACHE_STORE_NAME:
+                    return store.get("id")
+            
+            # Create new store if not found
+            create_response = await client.post(
+                f"https://api.apify.com/v2/key-value-stores?token={APIFY_TOKEN}&name={APIFY_CACHE_STORE_NAME}"
+            )
+            if create_response.status_code == 201:
+                return create_response.json().get("data", {}).get("id")
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error getting/creating cache store: {e}")
+            return None
+
+def generate_cache_key(search_type: str, usernames: List[str] = None, hashtag: str = None, max_results: int = 25) -> str:
+    """Generate a consistent cache key for search criteria"""
+    import hashlib
+    if search_type == "username" and usernames:
+        # Sort usernames for consistent key
+        sorted_users = sorted([u.lower().strip() for u in usernames])
+        key_data = f"username:{','.join(sorted_users)}:limit:{max_results}"
+    elif search_type == "hashtag" and hashtag:
+        key_data = f"hashtag:{hashtag.lower().strip()}:limit:{max_results}"
+    else:
+        return None
+    
+    # Create hash for shorter key
+    hash_obj = hashlib.md5(key_data.encode())
+    return f"{search_type}_{hash_obj.hexdigest()[:16]}"
+
+async def get_cached_results(cache_key: str) -> Optional[List[Dict]]:
+    """Check if we have cached results for this search"""
+    if not cache_key:
+        return None
+    
+    store_id = await get_or_create_cache_store()
+    if not store_id:
+        return None
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.get(
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={APIFY_TOKEN}"
+            )
+            if response.status_code == 200:
+                data = response.json()
+                # Check if cache is still valid (less than 24 hours old)
+                cached_at = data.get("cached_at", "")
+                if cached_at:
+                    from datetime import datetime
+                    cache_time = datetime.fromisoformat(cached_at.replace("Z", "+00:00"))
+                    if (datetime.now(timezone.utc) - cache_time).total_seconds() < 86400:  # 24 hours
+                        logger.info(f"Cache hit for key: {cache_key}")
+                        return data.get("results", [])
+            return None
+        except Exception as e:
+            logger.debug(f"Cache miss or error: {e}")
+            return None
+
+async def save_to_cache(cache_key: str, results: List[Dict]):
+    """Save search results to cache"""
+    if not cache_key or not results:
+        return
+    
+    store_id = await get_or_create_cache_store()
+    if not store_id:
+        return
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            cache_data = {
+                "cached_at": datetime.now(timezone.utc).isoformat(),
+                "results": [r.model_dump() if hasattr(r, 'model_dump') else r for r in results]
+            }
+            await client.put(
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={APIFY_TOKEN}",
+                json=cache_data,
+                headers={"Content-Type": "application/json"}
+            )
+            logger.info(f"Saved {len(results)} results to cache: {cache_key}")
+        except Exception as e:
+            logger.error(f"Error saving to cache: {e}")
 
 # Create the main app
 app = FastAPI()

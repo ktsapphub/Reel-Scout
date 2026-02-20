@@ -783,7 +783,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
                         items = dataset_response.json()
                         items_processed = len(items)
                         if items:
-                            partial_results = await process_apify_results(items, user_email)
+                            partial_results = await process_apify_results(items, user_email, search_type)
                             logger.info(f"Retrieved {len(partial_results)} partial results from {items_processed} items before stopping")
             except Exception as e:
                 logger.warning(f"Could not retrieve partial results: {e}")

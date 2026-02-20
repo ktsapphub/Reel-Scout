@@ -670,7 +670,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     items = dataset_response.json()
                     
                     # Process results
-                    results = await process_apify_results(items, user_email)
+                    results = await process_apify_results(items, user_email, search_type)
                     
                     # Save to cache for future use
                     if cache_key and results:

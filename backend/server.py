@@ -969,7 +969,7 @@ async def process_apify_results(items: List[Dict], user_email: str, search_type:
             logger.error(f"Error processing item: {e}")
             continue
     
-    logger.info(f"Processed {len(results)} valid reels from {len(items)} items (skipped {skipped_images} images, {skipped_no_video} non-videos)")
+    logger.info(f"Processed {len(results)} valid reels from {len(items)} items (skipped: {skipped_images} images, {skipped_no_video} non-videos, {skipped_no_url} no-url)")
     return results
 
 @api_router.post("/reels/search", response_model=SearchResponse)

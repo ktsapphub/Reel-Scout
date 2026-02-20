@@ -1057,7 +1057,7 @@ async def search_reels(request: SearchRequest, user_email: str = Depends(get_cur
             raise HTTPException(status_code=500, detail=f"Apify API error: {str(e)}")
     
     # Process results
-    results = await process_apify_results(items, user_email)
+    results = await process_apify_results(items, user_email, request.search_type)
     
     await log_audit("search", user_email, {
         "search_type": request.search_type,

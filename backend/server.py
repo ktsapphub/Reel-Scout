@@ -814,18 +814,34 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
             logger.error(f"Apify abort error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to stop search: {str(e)}")
 
-async def process_apify_results(items: List[Dict], user_email: str) -> List[ReelResult]:
+async def process_apify_results(items: List[Dict], user_email: str, search_type: str = "unknown") -> List[ReelResult]:
     """Process Apify results into ReelResult objects - ONLY REELS"""
     results = []
     seen_ids = set()
     skipped_images = 0
     skipped_no_video = 0
+    skipped_no_url = 0
     
     # Get previously saved reel IDs for de-duplication
     saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
     saved_urls = {r["reel_url"] for r in saved_reels}
     
-    logger.info(f"Processing {len(items)} items from Apify (filtering for reels only)")
+    logger.info(f"Processing {len(items)} items from Apify (search_type: {search_type}, filtering for reels only)")
+    
+    # DEBUG: Log first item to understand response structure
+    if items:
+        first_item = items[0]
+        logger.info(f"=== SAMPLE APIFY RESPONSE (first item) ===")
+        logger.info(f"Keys: {list(first_item.keys())}")
+        logger.info(f"type: {first_item.get('type')}")
+        logger.info(f"productType: {first_item.get('productType')}")
+        logger.info(f"mediaType: {first_item.get('mediaType')}")
+        logger.info(f"isVideo: {first_item.get('isVideo')}")
+        logger.info(f"videoUrl: {first_item.get('videoUrl', 'NOT_FOUND')[:100] if first_item.get('videoUrl') else 'NOT_FOUND'}")
+        logger.info(f"displayUrl: {first_item.get('displayUrl', 'NOT_FOUND')[:100] if first_item.get('displayUrl') else 'NOT_FOUND'}")
+        logger.info(f"url: {first_item.get('url')}")
+        logger.info(f"shortCode: {first_item.get('shortCode')}")
+        logger.info(f"===========================================")
     
     for item in items:
         try:
@@ -833,45 +849,67 @@ async def process_apify_results(items: List[Dict], user_email: str) -> List[Reel
             item_type = (item.get("type", "") or item.get("productType", "") or "").lower()
             media_type = (item.get("mediaType", "") or item.get("media_type", "") or "").lower()
             
-            # Get video URL - this is the key indicator
+            # Get video URL - check ALL possible field names
             video_url = (
                 item.get("videoUrl") or 
                 item.get("video_url") or 
                 item.get("videoPlaybackUrl") or
                 item.get("video_playback_url") or
+                item.get("video") or
+                item.get("videos", [{}])[0].get("url") if isinstance(item.get("videos"), list) else None or
                 None
             )
             
             # Check explicit video/reel flags
             is_video = item.get("isVideo", False) or item.get("is_video", False)
-            is_reel = "reel" in item_type or "reel" in media_type or "/reel/" in str(item.get("url", ""))
+            item_url = str(item.get("url", "") or item.get("shortCode", "") or "")
+            is_reel = (
+                "reel" in item_type or 
+                "reel" in media_type or 
+                "/reel/" in item_url or
+                "/reels/" in item_url or
+                item_type == "video" or
+                item_type == "clip"
+            )
             
             # STRICT FILTERING: Must be a video/reel
             # Skip explicitly marked images/photos
-            image_types = ["image", "photo", "sidecar", "graphimage", "carousel", "graphsidecar"]
+            image_types = ["image", "photo", "sidecar", "graphimage", "carousel", "graphsidecar", "graphstoryimage"]
             if item_type in image_types or media_type in image_types:
                 skipped_images += 1
-                logger.debug(f"Skipping image: type={item_type}, media_type={media_type}")
                 continue
             
-            # Must have a video URL OR be explicitly marked as video/reel
-            if not video_url and not is_video and not is_reel:
-                # Check if displayUrl looks like a video (has video indicators)
+            # For hashtag search, be more lenient - if we have a video URL, it's likely a reel
+            if video_url:
+                # Has video URL - this is a video/reel
+                pass
+            elif is_video or is_reel:
+                # Explicitly marked as video/reel
+                pass
+            else:
+                # No video URL and not marked as video - skip
                 display_url = item.get("displayUrl", "") or ""
-                if not display_url or ".jpg" in display_url or ".png" in display_url or ".webp" in display_url:
+                if ".jpg" in display_url or ".png" in display_url or ".webp" in display_url:
                     skipped_no_video += 1
-                    logger.debug(f"Skipping non-video: no video URL, type={item_type}")
+                    continue
+                # If displayUrl looks like it could be video, allow it
+                if not display_url:
+                    skipped_no_video += 1
                     continue
             
-            # Duration filter - reels are typically <= 90 seconds, be lenient up to 120
+            # Duration filter - reels are typically <= 90 seconds, be lenient up to 180
             duration = item.get("videoDuration") or item.get("video_duration") or item.get("duration") or 0
-            if duration and duration > 120:
-                logger.debug(f"Skipping item with duration > 120s: {duration}")
+            if duration and duration > 180:
+                logger.debug(f"Skipping item with duration > 180s: {duration}")
                 continue
             
-            # De-duplicate
-            reel_url = item.get("url") or item.get("shortCode") or ""
+            # De-duplicate - get URL
+            reel_url = item.get("url") or ""
+            if not reel_url and item.get("shortCode"):
+                reel_url = f"https://www.instagram.com/reel/{item.get('shortCode')}/"
+            
             if not reel_url:
+                skipped_no_url += 1
                 continue
                 
             reel_id = extract_reel_id(reel_url)

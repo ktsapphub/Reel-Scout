@@ -758,6 +758,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
     run_info = active_runs.get(run_id, {})
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
     cache_key = run_info.get("cache_key")
+    search_type = run_info.get("search_type", "unknown")
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:

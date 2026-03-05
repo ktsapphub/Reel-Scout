@@ -677,10 +677,27 @@ function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
           {/* Connection Details */}
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <span className="text-sm text-slate-600">API Token</span>
-              <Badge variant={status.token_valid ? "default" : "destructive"} className={status.token_valid ? "bg-green-100 text-green-800" : ""}>
-                {status.token_valid ? "Valid" : "Invalid"}
+              <div>
+                <span className="text-sm text-slate-600">Hashtag Token</span>
+                <p className="text-xs text-slate-400">For hashtag searches</p>
+              </div>
+              <Badge variant={status.hashtag_token_valid ? "default" : "destructive"} className={status.hashtag_token_valid ? "bg-green-100 text-green-800" : ""}>
+                {status.hashtag_token_valid ? "Valid" : "Invalid"}
               </Badge>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div>
+                <span className="text-sm text-slate-600">Username Token</span>
+                <p className="text-xs text-slate-400">For username/profile searches</p>
+              </div>
+              <Badge variant={status.username_token_valid ? "default" : "destructive"} className={status.username_token_valid ? "bg-green-100 text-green-800" : ""}>
+                {status.username_token_valid ? "Valid" : "Invalid"}
+              </Badge>
+            </div>
+            
+            <div className="border-t border-slate-200 pt-3">
+              <p className="text-xs text-slate-500 mb-2 font-medium">Actors</p>
             </div>
             
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">

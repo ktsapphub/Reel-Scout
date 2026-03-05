@@ -1045,23 +1045,15 @@ async def process_apify_results(items: List[Dict], user_email: str, search_type:
                 skipped_images += 1
                 continue
             
-            # For hashtag search, be more lenient - if we have a video URL, it's likely a reel
+            # Must have a video URL OR be explicitly flagged as video/reel
             if video_url:
-                # Has video URL - this is a video/reel
-                pass
+                pass  # Has video URL - confirmed video
             elif is_video or is_reel:
-                # Explicitly marked as video/reel
-                pass
+                pass  # Explicitly marked as video/reel
             else:
-                # No video URL and not marked as video - skip
-                display_url = item.get("displayUrl", "") or ""
-                if ".jpg" in display_url or ".png" in display_url or ".webp" in display_url:
-                    skipped_no_video += 1
-                    continue
-                # If displayUrl looks like it could be video, allow it
-                if not display_url:
-                    skipped_no_video += 1
-                    continue
+                # No video URL and not marked as video/reel - always skip
+                skipped_no_video += 1
+                continue
             
             # Duration filter - reels are typically <= 90 seconds, be lenient up to 180
             duration = item.get("videoDuration") or item.get("video_duration") or item.get("duration") or 0

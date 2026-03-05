@@ -643,6 +643,8 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
 
 // Apify Connection Status Modal
 function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
+  const [expandedHelp, setExpandedHelp] = useState(null);
+
   if (!status) return null;
 
   // Determine which search types are available
@@ -691,8 +693,6 @@ function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
     };
     return steps[issue] || [];
   };
-
-  const [expandedHelp, setExpandedHelp] = useState(null);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -979,24 +979,6 @@ function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
               Recheck
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-          <Button variant="outline" onClick={onClose} className="border-slate-200">Close</Button>
-          <Button onClick={onRecheck} disabled={isChecking} className="bg-blue-600 hover:bg-blue-700">
-            {isChecking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wifi className="w-4 h-4 mr-2" />}
-            Recheck
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

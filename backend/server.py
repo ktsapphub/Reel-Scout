@@ -505,20 +505,19 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     elif request.search_type == "hashtag":
         if not request.hashtag:
             raise HTTPException(status_code=400, detail="Hashtag required")
-        # Use hashtag actor with correct input format
-        actor_id = APIFY_HASHTAG_ACTOR_ID
+        
+        # Use official Apify Instagram Reel Scraper
+        actor_id = APIFY_REEL_SCRAPER_ID
         hashtag = request.hashtag.replace("#", "").strip()
         cache_key = generate_cache_key("hashtag", hashtag=hashtag, max_results=request.max_results)
         
-        # Input format based on Apify actor documentation
-        # Actor: reGe1ST3OBgYZSsZJ (Instagram Hashtag Scraper)
-        # NOTE: This actor uses "resultsCount" NOT "resultsLimit"
+        # Input format for apify/instagram-reel-scraper
+        # Docs: https://apify.com/apify/instagram-reel-scraper
         apify_input = {
             "hashtags": [hashtag],
-            "resultsType": "reels",  # Only retrieve reels, not posts/images
-            "resultsCount": request.max_results  # Correct parameter name for hashtag actor
+            "resultsLimit": request.max_results
         }
-        logger.info(f"Hashtag search input: {apify_input}")
+        logger.info(f"Hashtag search using apify/instagram-reel-scraper: {apify_input}")
     else:
         raise HTTPException(status_code=400, detail="Invalid search type")
     

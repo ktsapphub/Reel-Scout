@@ -7,7 +7,7 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - **Frontend**: React with Tailwind CSS, shadcn/ui components
 - **Backend**: FastAPI with MongoDB
 - **Authentication**: JWT with email allowlist
-- **External Integrations**: Apify Actor (xMc5Ga1oCONPmWJIa for username, reGe1ST3OBgYZSsZJ for hashtag), Cloudinary
+- **External Integrations**: Apify Actor (xMc5Ga1oCONPmWJIa for username, apify~instagram-reel-scraper for reels, reGe1ST3OBgYZSsZJ for hashtag), Cloudinary
 
 ## User Personas
 - Internal team members (2-3 people) for content curation from Instagram
@@ -21,12 +21,12 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 6. **Audit Logging**: Track all searches, uploads, exports
 7. **Caching**: Apify Key-Value store caching to reduce costs
 
-## What's Been Implemented (Jan 2026)
+## What's Been Implemented
 - [x] JWT-based authentication with allowlist
 - [x] Login/logout functionality
 - [x] Dashboard with 3 search mode tabs (Username, Profile URL, Hashtag)
 - [x] Username search via Apify actor (xMc5Ga1oCONPmWJIa)
-- [x] Hashtag search via Apify actor (reGe1ST3OBgYZSsZJ) - **reels only filtering** (dual parameters + strict backend filtering)
+- [x] Hashtag search via Apify actor (reGe1ST3OBgYZSsZJ) - strict reel-only filtering
 - [x] Profile URL search (extracts usernames)
 - [x] Cost estimator (maxResults / 1000 * $2.60)
 - [x] Results display with video player and metadata
@@ -38,112 +38,71 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - [x] De-duplication via MongoDB
 - [x] Audit logging
 - [x] Apify caching via Key-Value store (24hr cache)
-- [x] History page to view/reload cached searches
+- [x] History page to view/reload cached searches with carousel preview
 - [x] Execution status modal with error details
 - [x] Stop search button and progress indicator
 - [x] Clear Results button
 - [x] Help panel with tooltips and workflow guide
-- [x] localStorage persistence for results (persists across page navigation)
-- [x] **CSV Upload for Bulk Usernames** - Import .csv or .txt files with usernames
-- [x] **Enhanced History Page Features**:
-  - Horizontal carousel preview of cached results
-  - Expandable full preview modal with video player
-  - Compare mode to view multiple cached searches side by side
-  - Navigation arrows and "Viewing X of Y" counter
-- [x] **Advanced Apify Filters** (Username search):
-  - `onlyPostsNewerThan` - Date picker to filter posts by date
-  - `includeTaggedPosts` - Checkbox to include posts where user is tagged
-- [x] **Search State Persistence**:
-  - Results persist when navigating between pages (localStorage)
-  - Active search continues running when navigating away
-  - Search progress shown with items processed count
-  - Stop Search retrieves partial results with count
+- [x] localStorage persistence for results
+- [x] CSV Upload for Bulk Usernames
+- [x] Enhanced History Page (carousel, expand modal, compare mode)
+- [x] Advanced Apify Filters (onlyPostsNewerThan, includeTaggedPosts)
+- [x] Search State Persistence across navigation
+- [x] Improved API Status modal with color-coded indicators, actor names, troubleshooting guides
+
+## Recent Bug Fixes (Mar 5, 2026)
+- [x] Fixed broken ApifyStatusModal (removed leftover old code from incomplete refactor)
+- [x] Fixed React hooks ordering violation (useState after conditional return)
+- [x] Tightened hashtag search filtering (strict: require video_url or explicit video/reel flag)
 
 ## Prioritized Backlog
-### P0 (Critical)
-- [x] All core features implemented ✅
-
 ### P1 (Important)
-- [x] CSV import for bulk username search ✅
-- [ ] Date range picker filter (dependent on Apify actor support)
-- [ ] Stop Search button UI integration with backend endpoint
+- [ ] Date range picker filter (UI placeholder exists, needs implementation)
+- [ ] Saved Search Presets (save and re-run common search configurations)
 
 ### P2 (Nice to Have)
-- [ ] Enhanced search progress indicator with time estimates
+- [ ] Refactor Backend server.py into modular files (routes/, services/, models.py)
+- [ ] Refactor Frontend DashboardPage.jsx (extract hooks and modal components)
 - [ ] Audit log viewer in UI
 
 ## Code Architecture
 ```
 /app/
 ├── backend/
-│   ├── .env (APIFY_TOKEN, CLOUDINARY credentials)
+│   ├── .env (APIFY_TOKEN, APIFY_USERNAME_TOKEN, CLOUDINARY credentials)
 │   ├── requirements.txt
-│   └── server.py (FastAPI with routes, services, auth)
+│   ├── server.py (FastAPI with routes, services, auth)
+│   └── tests/test_api.py
 ├── frontend/
 │   ├── .env (REACT_APP_BACKEND_URL)
 │   ├── package.json
 │   └── src/
 │       ├── App.js (Router: Login, Dashboard, History)
 │       └── pages/
-│           ├── DashboardPage.jsx (Main search UI + CSV upload + localStorage)
-│           ├── HistoryPage.jsx (Enhanced with carousel, expand, compare)
+│           ├── DashboardPage.jsx (Main search UI, modals, localStorage)
+│           ├── HistoryPage.jsx (Carousel, expand, compare)
 │           └── LoginPage.jsx
+└── memory/PRD.md
 ```
 
 ## Key API Endpoints
 - `POST /api/auth/login` - JWT authentication
+- `GET /api/auth/me` - Current user info
 - `POST /api/reels/search/start` - Start Apify search
 - `GET /api/reels/search/status/{run_id}` - Poll search status
-- `POST /api/reels/search/stop/{run_id}` - Stop running search (returns partial results)
+- `POST /api/reels/search/stop/{run_id}` - Stop search (returns partial results)
+- `GET /api/apify/status` - Check Apify connection status
 - `POST /api/reels/upload` - Upload to Cloudinary
-- `GET /api/reels/upload/status/{task_id}` - Poll upload status
 - `POST /api/reels/export` - Generate CSV
 - `GET /api/search-history` - List cached searches
-- `GET /api/search-history/{cache_key}` - Load specific cached search
-
-## Apify Actor Configuration
-- **Username Actor**: `xMc5Ga1oCONPmWJIa` - For username/profile searches
-  - Input: `{ "username": [...], "resultsLimit": N }`
-- **Hashtag Actor**: `reGe1ST3OBgYZSsZJ` - For hashtag searches (reels only)
-  - Input: `{ "hashtags": ["tag"], "resultsType": "reels", "resultsCount": N }`
-  - Key-Value Store ID: `SvuIw7S8Yl3wY5Lvb`
-  - NOTE: Uses `resultsCount` NOT `resultsLimit`
-
-## New Features (Jan 30, 2026)
-
-### CSV Upload for Bulk Usernames
-- Located in Username search tab with "Sample" and "Import CSV" links
-- **"Sample"** - Downloads a template CSV file with example usernames
-- **"Import CSV"** - Accepts .csv and .txt files
-- Parses usernames from various formats (comma/tab/semicolon separated)
-- Removes duplicates and invalid entries automatically
-- Limits to MAX_USERNAME_FIELDS (10) with warning for excess
-- Shows success toast with count of imported usernames
-
-### Enhanced History Page
-1. **Horizontal Carousel Preview**
-   - Click "Preview" to show inline carousel of cached results
-   - Shows video thumbnails with username and duration
-   - Horizontally scrollable with thin scrollbar
-
-2. **Expanded Preview Modal**
-   - Click "Expand" to open full-screen modal
-   - Full video player on left with playback controls
-   - Horizontal carousel on right for browsing results
-   - "Viewing X of Y" counter with navigation arrows
-   - "Load All Results" button to use in main finder
-
-3. **Compare Mode**
-   - Click "Compare Mode" button to toggle
-   - Select up to 3 cached searches with checkboxes
-   - Opens comparison modal showing all searches side by side
-   - Each search shows its own horizontal carousel
+- `GET /api/search-history/{cache_key}` - Load cached search
 
 ## Test Credentials
 - User 1: mydatejar@gmail.com / #Test1234
 - User 2: joseph@centurion-pm.com / #Test1234
 
 ## Next Tasks
-1. Date range picker integration (dependent on Apify support)
-2. Backend code refactoring (split server.py into modules)
-3. Enhanced search progress indicator
+1. Implement Date Range Picker
+2. Add Saved Search Presets
+3. Backend refactoring (split server.py)
+4. Frontend refactoring (extract from DashboardPage.jsx)

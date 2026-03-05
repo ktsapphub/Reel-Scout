@@ -46,10 +46,11 @@ ALLOWLIST_USERS = os.environ.get("ALLOWLIST_USERS", "").split(",")
 USER_PASSWORD = "#Test1234"
 
 # Apify config
-APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
+APIFY_TOKEN = os.environ.get("APIFY_TOKEN")  # For hashtag searches
+APIFY_USERNAME_TOKEN = os.environ.get("APIFY_USERNAME_TOKEN")  # For username/profile searches
 APIFY_ACTOR_ID = "xMc5Ga1oCONPmWJIa"  # Username scraper (profile-based)
 APIFY_REEL_SCRAPER_ID = "apify~instagram-reel-scraper"  # Official Apify Instagram Reel Scraper (URL encoded)
-APIFY_HASHTAG_ACTOR_ID = "reGe1ST3OBgYZSsZJ"  # Legacy hashtag scraper (backup)
+APIFY_HASHTAG_ACTOR_ID = "reGe1ST3OBgYZSsZJ"  # Hashtag scraper
 APIFY_CACHE_STORE_NAME = "ig-reel-finder-cache"
 APIFY_HASHTAG_KV_STORE_ID = "SvuIw7S8Yl3wY5Lvb"  # Specific store for hashtag actor
 

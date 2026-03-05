@@ -695,11 +695,11 @@ function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
             
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
               <div>
-                <span className="text-sm text-slate-600">Hashtag Actor</span>
-                <p className="text-xs text-slate-400 font-mono">reGe1ST3OBgYZSsZJ</p>
+                <span className="text-sm text-slate-600">Reel Scraper</span>
+                <p className="text-xs text-slate-400 font-mono">apify/instagram-reel-scraper</p>
               </div>
-              <Badge variant={status.hashtag_actor_accessible ? "default" : "destructive"} className={status.hashtag_actor_accessible ? "bg-green-100 text-green-800" : ""}>
-                {status.hashtag_actor_accessible ? "Accessible" : "Not Accessible"}
+              <Badge variant={status.reel_scraper_accessible ? "default" : "destructive"} className={status.reel_scraper_accessible ? "bg-green-100 text-green-800" : ""}>
+                {status.reel_scraper_accessible ? "Accessible" : "Not Accessible"}
               </Badge>
             </div>
           </div>

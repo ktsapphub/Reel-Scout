@@ -796,7 +796,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     # Get results
                     dataset_id = status_data["data"]["defaultDatasetId"]
                     dataset_response = await client.get(
-                        f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}"
+                        f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={api_token}"
                     )
                     dataset_response.raise_for_status()
                     items = dataset_response.json()

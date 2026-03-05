@@ -362,59 +362,63 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
         
         # Check username actor accessibility (with username token)
         if APIFY_USERNAME_TOKEN:
-        try:
-            actor_response = await client.get(
-                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}?token={APIFY_TOKEN}"
-            )
-            if actor_response.status_code == 200:
-                username_actor_accessible = True
-            else:
-                errors.append(f"Username actor ({APIFY_ACTOR_ID}) not accessible: HTTP {actor_response.status_code}")
-        except Exception as e:
-            errors.append(f"Username actor check error: {str(e)}")
+            try:
+                actor_response = await client.get(
+                    f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}?token={APIFY_USERNAME_TOKEN}"
+                )
+                if actor_response.status_code == 200:
+                    username_actor_accessible = True
+                else:
+                    errors.append(f"Username actor not accessible: HTTP {actor_response.status_code}")
+            except Exception as e:
+                errors.append(f"Username actor check error: {str(e)}")
         
-        # Check official Apify Instagram Reel Scraper accessibility
-        try:
-            reel_response = await client.get(
-                f"https://api.apify.com/v2/acts/{APIFY_REEL_SCRAPER_ID}?token={APIFY_TOKEN}"
-            )
-            if reel_response.status_code == 200:
-                reel_scraper_accessible = True
-            else:
-                errors.append(f"Reel Scraper ({APIFY_REEL_SCRAPER_ID}) not accessible: HTTP {reel_response.status_code}")
-        except Exception as e:
-            errors.append(f"Reel Scraper check error: {str(e)}")
+        # Check official Apify Instagram Reel Scraper accessibility (with username token)
+        if APIFY_USERNAME_TOKEN:
+            try:
+                reel_response = await client.get(
+                    f"https://api.apify.com/v2/acts/{APIFY_REEL_SCRAPER_ID}?token={APIFY_USERNAME_TOKEN}"
+                )
+                if reel_response.status_code == 200:
+                    reel_scraper_accessible = True
+                else:
+                    errors.append(f"Reel Scraper not accessible: HTTP {reel_response.status_code}")
+            except Exception as e:
+                errors.append(f"Reel Scraper check error: {str(e)}")
         
-        # Check hashtag actor accessibility
-        try:
-            hashtag_response = await client.get(
-                f"https://api.apify.com/v2/acts/{APIFY_HASHTAG_ACTOR_ID}?token={APIFY_TOKEN}"
-            )
-            if hashtag_response.status_code == 200:
-                hashtag_actor_accessible = True
-            else:
-                errors.append(f"Hashtag actor ({APIFY_HASHTAG_ACTOR_ID}) not accessible: HTTP {hashtag_response.status_code}")
-        except Exception as e:
-            errors.append(f"Hashtag actor check error: {str(e)}")
+        # Check hashtag actor accessibility (with hashtag token)
+        if APIFY_TOKEN:
+            try:
+                hashtag_response = await client.get(
+                    f"https://api.apify.com/v2/acts/{APIFY_HASHTAG_ACTOR_ID}?token={APIFY_TOKEN}"
+                )
+                if hashtag_response.status_code == 200:
+                    hashtag_actor_accessible = True
+                else:
+                    errors.append(f"Hashtag actor not accessible: HTTP {hashtag_response.status_code}")
+            except Exception as e:
+                errors.append(f"Hashtag actor check error: {str(e)}")
     
-    connected = token_valid and (username_actor_accessible or reel_scraper_accessible or hashtag_actor_accessible)
+    connected = (hashtag_token_valid or username_token_valid) and (username_actor_accessible or reel_scraper_accessible or hashtag_actor_accessible)
     
     if connected and not errors:
         message = "All Apify connections working correctly"
-    elif token_valid:
-        message = "Token valid but some actors not accessible"
+    elif hashtag_token_valid or username_token_valid:
+        message = "Tokens valid but some actors not accessible"
     else:
         message = "Apify connection failed"
     
     await log_audit("apify_connection_check", user_email, {
         "connected": connected,
-        "token_valid": token_valid,
+        "hashtag_token_valid": hashtag_token_valid,
+        "username_token_valid": username_token_valid,
         "errors": errors
     })
     
     return ApifyConnectionStatus(
         connected=connected,
-        token_valid=token_valid,
+        hashtag_token_valid=hashtag_token_valid,
+        username_token_valid=username_token_valid,
         username_actor_accessible=username_actor_accessible,
         reel_scraper_accessible=reel_scraper_accessible,
         hashtag_actor_accessible=hashtag_actor_accessible,

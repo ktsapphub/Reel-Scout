@@ -288,6 +288,7 @@ class ApifyConnectionStatus(BaseModel):
     token_valid: bool
     username_actor_accessible: bool
     reel_scraper_accessible: bool
+    hashtag_actor_accessible: bool
     account_info: Optional[dict] = None
     errors: List[str] = []
     message: str
@@ -299,6 +300,7 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
     token_valid = False
     username_actor_accessible = False
     reel_scraper_accessible = False
+    hashtag_actor_accessible = False
     account_info = None
     
     if not APIFY_TOKEN:
@@ -307,6 +309,7 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
             token_valid=False,
             username_actor_accessible=False,
             reel_scraper_accessible=False,
+            hashtag_actor_accessible=False,
             errors=["APIFY_TOKEN not configured in environment"],
             message="Apify token not configured"
         )

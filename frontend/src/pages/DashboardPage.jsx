@@ -641,6 +641,114 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
   );
 }
 
+// Apify Connection Status Modal
+function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
+  if (!status) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {status.connected ? (
+              <Wifi className="w-5 h-5 text-green-600" />
+            ) : (
+              <WifiOff className="w-5 h-5 text-red-600" />
+            )}
+            Apify Connection Status
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Overall Status */}
+          <div className={`p-4 rounded-lg ${status.connected ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            <div className="flex items-center gap-2">
+              {status.connected ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              ) : (
+                <XCircle className="w-5 h-5 text-red-600" />
+              )}
+              <span className={`font-medium ${status.connected ? 'text-green-800' : 'text-red-800'}`}>
+                {status.message}
+              </span>
+            </div>
+          </div>
+
+          {/* Connection Details */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <span className="text-sm text-slate-600">API Token</span>
+              <Badge variant={status.token_valid ? "default" : "destructive"} className={status.token_valid ? "bg-green-100 text-green-800" : ""}>
+                {status.token_valid ? "Valid" : "Invalid"}
+              </Badge>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div>
+                <span className="text-sm text-slate-600">Username Actor</span>
+                <p className="text-xs text-slate-400 font-mono">xMc5Ga1oCONPmWJIa</p>
+              </div>
+              <Badge variant={status.username_actor_accessible ? "default" : "destructive"} className={status.username_actor_accessible ? "bg-green-100 text-green-800" : ""}>
+                {status.username_actor_accessible ? "Accessible" : "Not Accessible"}
+              </Badge>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div>
+                <span className="text-sm text-slate-600">Hashtag Actor</span>
+                <p className="text-xs text-slate-400 font-mono">reGe1ST3OBgYZSsZJ</p>
+              </div>
+              <Badge variant={status.hashtag_actor_accessible ? "default" : "destructive"} className={status.hashtag_actor_accessible ? "bg-green-100 text-green-800" : ""}>
+                {status.hashtag_actor_accessible ? "Accessible" : "Not Accessible"}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Account Info */}
+          {status.account_info && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <Label className="text-xs text-blue-700 uppercase tracking-wide">Account Info</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                <div>
+                  <span className="text-blue-600">Username:</span>
+                  <span className="ml-1 text-blue-800 font-medium">{status.account_info.username}</span>
+                </div>
+                <div>
+                  <span className="text-blue-600">Plan:</span>
+                  <span className="ml-1 text-blue-800 font-medium">{status.account_info.plan || "N/A"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Errors */}
+          {status.errors && status.errors.length > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <Label className="text-xs text-red-700 uppercase tracking-wide">Errors</Label>
+              <ul className="mt-2 space-y-1">
+                {status.errors.map((error, idx) => (
+                  <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
+                    <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+          <Button variant="outline" onClick={onClose} className="border-slate-200">Close</Button>
+          <Button onClick={onRecheck} disabled={isChecking} className="bg-blue-600 hover:bg-blue-700">
+            {isChecking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wifi className="w-4 h-4 mr-2" />}
+            Recheck
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function DashboardPage({ token, userEmail, onLogout, backendUrl }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();

@@ -359,8 +359,20 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
                 errors.append(f"Reel Scraper ({APIFY_REEL_SCRAPER_ID}) not accessible: HTTP {reel_response.status_code}")
         except Exception as e:
             errors.append(f"Reel Scraper check error: {str(e)}")
+        
+        # Check hashtag actor accessibility
+        try:
+            hashtag_response = await client.get(
+                f"https://api.apify.com/v2/acts/{APIFY_HASHTAG_ACTOR_ID}?token={APIFY_TOKEN}"
+            )
+            if hashtag_response.status_code == 200:
+                hashtag_actor_accessible = True
+            else:
+                errors.append(f"Hashtag actor ({APIFY_HASHTAG_ACTOR_ID}) not accessible: HTTP {hashtag_response.status_code}")
+        except Exception as e:
+            errors.append(f"Hashtag actor check error: {str(e)}")
     
-    connected = token_valid and (username_actor_accessible or reel_scraper_accessible)
+    connected = token_valid and (username_actor_accessible or reel_scraper_accessible or hashtag_actor_accessible)
     
     if connected and not errors:
         message = "All Apify connections working correctly"
@@ -380,6 +392,7 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
         token_valid=token_valid,
         username_actor_accessible=username_actor_accessible,
         reel_scraper_accessible=reel_scraper_accessible,
+        hashtag_actor_accessible=hashtag_actor_accessible,
         account_info=account_info,
         errors=errors,
         message=message

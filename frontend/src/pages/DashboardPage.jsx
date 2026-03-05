@@ -1314,6 +1314,13 @@ travelandleisure
       <div className="min-h-screen bg-white">
         <ExecutionStatusModal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} executionStatus={executionStatus} />
         <UploadProgressModal isOpen={showUploadModal} onClose={() => !uploading && setShowUploadModal(false)} uploadStatus={uploadStatus} />
+        <ApifyStatusModal 
+          isOpen={showApifyModal} 
+          onClose={() => setShowApifyModal(false)} 
+          status={apifyStatus}
+          onRecheck={checkApifyConnection}
+          isChecking={checkingApify}
+        />
 
         <header className="sticky top-0 z-50 glass border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -1326,7 +1333,29 @@ travelandleisure
                 <p className="text-xs text-slate-500">My Date Jar</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={checkApifyConnection}
+                    disabled={checkingApify}
+                    className="border-slate-200 text-slate-600 hover:text-slate-900"
+                    data-testid="check-apify-btn"
+                  >
+                    {checkingApify ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Settings className="w-4 h-4 mr-2" />
+                    )}
+                    API Status
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Check Apify API connection and actor status</p>
+                </TooltipContent>
+              </Tooltip>
               <Button
                 variant="outline"
                 size="sm"

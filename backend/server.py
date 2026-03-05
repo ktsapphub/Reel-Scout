@@ -286,7 +286,8 @@ async def get_me(user_email: str = Depends(get_current_user)):
 # Apify Connection Check Response Model
 class ApifyConnectionStatus(BaseModel):
     connected: bool
-    token_valid: bool
+    hashtag_token_valid: bool
+    username_token_valid: bool
     username_actor_accessible: bool
     reel_scraper_accessible: bool
     hashtag_actor_accessible: bool
@@ -298,46 +299,69 @@ class ApifyConnectionStatus(BaseModel):
 async def check_apify_connection(user_email: str = Depends(get_current_user)):
     """Check Apify API connection and actor accessibility"""
     errors = []
-    token_valid = False
+    hashtag_token_valid = False
+    username_token_valid = False
     username_actor_accessible = False
     reel_scraper_accessible = False
     hashtag_actor_accessible = False
     account_info = None
     
-    if not APIFY_TOKEN:
+    if not APIFY_TOKEN and not APIFY_USERNAME_TOKEN:
         return ApifyConnectionStatus(
             connected=False,
-            token_valid=False,
+            hashtag_token_valid=False,
+            username_token_valid=False,
             username_actor_accessible=False,
             reel_scraper_accessible=False,
             hashtag_actor_accessible=False,
-            errors=["APIFY_TOKEN not configured in environment"],
-            message="Apify token not configured"
+            errors=["No Apify tokens configured"],
+            message="Apify tokens not configured"
         )
     
     async with httpx.AsyncClient(timeout=15.0) as client:
-        # Check token validity by getting user info
-        try:
-            user_response = await client.get(
-                f"https://api.apify.com/v2/users/me?token={APIFY_TOKEN}"
-            )
-            if user_response.status_code == 200:
-                token_valid = True
-                user_data = user_response.json().get("data", {})
-                plan_data = user_data.get("plan", {})
-                plan_name = plan_data.get("id") if isinstance(plan_data, dict) else str(plan_data) if plan_data else "N/A"
-                account_info = {
-                    "username": user_data.get("username", "N/A"),
-                    "email": user_data.get("email", "N/A"),
-                    "plan": plan_name,
-                    "proxy_credits": user_data.get("proxy", {}).get("remainingCreditsUsd"),
-                }
-            else:
-                errors.append(f"Token validation failed: HTTP {user_response.status_code}")
-        except Exception as e:
-            errors.append(f"Token validation error: {str(e)}")
+        # Check hashtag token validity
+        if APIFY_TOKEN:
+            try:
+                user_response = await client.get(
+                    f"https://api.apify.com/v2/users/me?token={APIFY_TOKEN}"
+                )
+                if user_response.status_code == 200:
+                    hashtag_token_valid = True
+                    user_data = user_response.json().get("data", {})
+                    plan_data = user_data.get("plan", {})
+                    plan_name = plan_data.get("id") if isinstance(plan_data, dict) else str(plan_data) if plan_data else "N/A"
+                    account_info = {
+                        "username": user_data.get("username", "N/A"),
+                        "email": user_data.get("email", "N/A"),
+                        "plan": plan_name,
+                        "hashtag_token": "***" + APIFY_TOKEN[-8:],
+                    }
+                else:
+                    errors.append(f"Hashtag token validation failed: HTTP {user_response.status_code}")
+            except Exception as e:
+                errors.append(f"Hashtag token error: {str(e)}")
+        else:
+            errors.append("APIFY_TOKEN (for hashtags) not configured")
         
-        # Check username actor accessibility
+        # Check username token validity
+        if APIFY_USERNAME_TOKEN:
+            try:
+                user_response = await client.get(
+                    f"https://api.apify.com/v2/users/me?token={APIFY_USERNAME_TOKEN}"
+                )
+                if user_response.status_code == 200:
+                    username_token_valid = True
+                    if account_info:
+                        account_info["username_token"] = "***" + APIFY_USERNAME_TOKEN[-8:]
+                else:
+                    errors.append(f"Username token validation failed: HTTP {user_response.status_code}")
+            except Exception as e:
+                errors.append(f"Username token error: {str(e)}")
+        else:
+            errors.append("APIFY_USERNAME_TOKEN not configured")
+        
+        # Check username actor accessibility (with username token)
+        if APIFY_USERNAME_TOKEN:
         try:
             actor_response = await client.get(
                 f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}?token={APIFY_TOKEN}"

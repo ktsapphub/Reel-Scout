@@ -884,13 +884,18 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
 @api_router.post("/reels/search/stop/{run_id}")
 async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
     """Stop a running search and retrieve partial results"""
-    if not APIFY_TOKEN:
-        raise HTTPException(status_code=500, detail="Apify token not configured")
-    
     run_info = active_runs.get(run_id, {})
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
     cache_key = run_info.get("cache_key")
     search_type = run_info.get("search_type", "unknown")
+    
+    # Get the token used for this run
+    api_token = run_info.get("api_token")
+    if not api_token:
+        api_token = APIFY_TOKEN if search_type == "hashtag" else APIFY_USERNAME_TOKEN
+    
+    if not api_token:
+        raise HTTPException(status_code=500, detail="Apify token not configured")
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
@@ -901,7 +906,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
             try:
                 # Get run status to find dataset ID
                 status_response = await client.get(
-                    f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={APIFY_TOKEN}"
+                    f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={api_token}"
                 )
                 status_data = status_response.json()
                 dataset_id = status_data["data"].get("defaultDatasetId")
@@ -909,7 +914,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
                 if dataset_id:
                     # Get partial results from dataset
                     dataset_response = await client.get(
-                        f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}"
+                        f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={api_token}"
                     )
                     if dataset_response.status_code == 200:
                         items = dataset_response.json()

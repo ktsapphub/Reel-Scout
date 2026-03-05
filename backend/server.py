@@ -927,7 +927,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
             
             # Now abort the run
             abort_response = await client.post(
-                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/abort?token={APIFY_TOKEN}"
+                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/abort?token={api_token}"
             )
             
             if run_id in active_runs:

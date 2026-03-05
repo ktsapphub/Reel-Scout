@@ -720,10 +720,16 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
 
 @api_router.get("/reels/search/status/{run_id}", response_model=SearchStatusResponse)
 async def get_search_status(run_id: str, user_email: str = Depends(get_current_user)):
-    if not APIFY_TOKEN:
-        raise HTTPException(status_code=500, detail="Apify token not configured")
-    
     run_info = active_runs.get(run_id, {})
+    
+    # Get the token used for this run (or default based on search type)
+    api_token = run_info.get("api_token")
+    if not api_token:
+        search_type = run_info.get("search_type", "username")
+        api_token = APIFY_TOKEN if search_type == "hashtag" else APIFY_USERNAME_TOKEN
+    
+    if not api_token:
+        raise HTTPException(status_code=500, detail="Apify token not configured")
     
     # Handle cached results
     if run_info.get("is_cached"):

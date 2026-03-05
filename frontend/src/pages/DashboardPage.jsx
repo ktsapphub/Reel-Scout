@@ -923,6 +923,34 @@ travelandleisure
     toast.success("Sample CSV downloaded");
   };
 
+  // Check Apify connection status
+  const checkApifyConnection = async () => {
+    setCheckingApify(true);
+    try {
+      const response = await api.get("/apify/status");
+      setApifyStatus(response.data);
+      setShowApifyModal(true);
+      if (response.data.connected) {
+        toast.success("Apify connection verified!");
+      } else {
+        toast.error("Apify connection issues detected");
+      }
+    } catch (error) {
+      toast.error("Failed to check Apify connection");
+      setApifyStatus({
+        connected: false,
+        token_valid: false,
+        username_actor_accessible: false,
+        hashtag_actor_accessible: false,
+        errors: [error.message],
+        message: "Failed to check connection"
+      });
+      setShowApifyModal(true);
+    } finally {
+      setCheckingApify(false);
+    }
+  };
+
   const showExecutionResult = (status, message, error = null, resultsCount = 0, searchRunId = null) => {
     setExecutionStatus({ status, message, error, results_count: resultsCount, run_id: searchRunId });
     setShowStatusModal(true);

@@ -763,7 +763,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             status_response = await client.get(
-                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={APIFY_TOKEN}"
+                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={api_token}"
             )
             status_data = status_response.json()
             status = status_data["data"]["status"]

@@ -722,6 +722,11 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
 
   const [exporting, setExporting] = useState(false);
 
+  // Apify connection status
+  const [apifyStatus, setApifyStatus] = useState(null);
+  const [checkingApify, setCheckingApify] = useState(false);
+  const [showApifyModal, setShowApifyModal] = useState(false);
+
   const api = axios.create({
     baseURL: `${backendUrl}/api`,
     headers: { Authorization: `Bearer ${token}` },

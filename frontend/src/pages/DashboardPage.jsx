@@ -80,6 +80,9 @@ import {
   History,
   FileUp,
   FileDown,
+  Wifi,
+  WifiOff,
+  Settings,
 } from "lucide-react";
 import axios from "axios";
 

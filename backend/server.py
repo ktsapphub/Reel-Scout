@@ -281,6 +281,104 @@ async def get_me(user_email: str = Depends(get_current_user)):
 
 # ===================== REELS ROUTES =====================
 
+# Apify Connection Check Response Model
+class ApifyConnectionStatus(BaseModel):
+    connected: bool
+    token_valid: bool
+    username_actor_accessible: bool
+    hashtag_actor_accessible: bool
+    account_info: Optional[dict] = None
+    errors: List[str] = []
+    message: str
+
+@api_router.get("/apify/status", response_model=ApifyConnectionStatus)
+async def check_apify_connection(user_email: str = Depends(get_current_user)):
+    """Check Apify API connection and actor accessibility"""
+    errors = []
+    token_valid = False
+    username_actor_accessible = False
+    hashtag_actor_accessible = False
+    account_info = None
+    
+    if not APIFY_TOKEN:
+        return ApifyConnectionStatus(
+            connected=False,
+            token_valid=False,
+            username_actor_accessible=False,
+            hashtag_actor_accessible=False,
+            errors=["APIFY_TOKEN not configured in environment"],
+            message="Apify token not configured"
+        )
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # Check token validity by getting user info
+        try:
+            user_response = await client.get(
+                f"https://api.apify.com/v2/users/me?token={APIFY_TOKEN}"
+            )
+            if user_response.status_code == 200:
+                token_valid = True
+                user_data = user_response.json().get("data", {})
+                account_info = {
+                    "username": user_data.get("username"),
+                    "email": user_data.get("email"),
+                    "plan": user_data.get("plan"),
+                    "proxy_credits": user_data.get("proxy", {}).get("remainingCreditsUsd"),
+                }
+            else:
+                errors.append(f"Token validation failed: HTTP {user_response.status_code}")
+        except Exception as e:
+            errors.append(f"Token validation error: {str(e)}")
+        
+        # Check username actor accessibility
+        try:
+            actor_response = await client.get(
+                f"https://api.apify.com/v2/acts/{APIFY_ACTOR_ID}?token={APIFY_TOKEN}"
+            )
+            if actor_response.status_code == 200:
+                username_actor_accessible = True
+            else:
+                errors.append(f"Username actor ({APIFY_ACTOR_ID}) not accessible: HTTP {actor_response.status_code}")
+        except Exception as e:
+            errors.append(f"Username actor check error: {str(e)}")
+        
+        # Check hashtag actor accessibility
+        try:
+            hashtag_response = await client.get(
+                f"https://api.apify.com/v2/acts/{APIFY_HASHTAG_ACTOR_ID}?token={APIFY_TOKEN}"
+            )
+            if hashtag_response.status_code == 200:
+                hashtag_actor_accessible = True
+            else:
+                errors.append(f"Hashtag actor ({APIFY_HASHTAG_ACTOR_ID}) not accessible: HTTP {hashtag_response.status_code}")
+        except Exception as e:
+            errors.append(f"Hashtag actor check error: {str(e)}")
+    
+    connected = token_valid and (username_actor_accessible or hashtag_actor_accessible)
+    
+    if connected and not errors:
+        message = "All Apify connections working correctly"
+    elif token_valid:
+        message = "Token valid but some actors not accessible"
+    else:
+        message = "Apify connection failed"
+    
+    await log_audit("apify_connection_check", user_email, {
+        "connected": connected,
+        "token_valid": token_valid,
+        "errors": errors
+    })
+    
+    return ApifyConnectionStatus(
+        connected=connected,
+        token_valid=token_valid,
+        username_actor_accessible=username_actor_accessible,
+        hashtag_actor_accessible=hashtag_actor_accessible,
+        account_info=account_info,
+        errors=errors,
+        message=message
+    )
+
 def validate_instagram_reel_url(url: str) -> bool:
     patterns = [
         r'https?://(?:www\.)?instagram\.com/reel/[A-Za-z0-9_-]+',

@@ -569,10 +569,17 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
             )
     
     # Start Apify actor
+    # Use appropriate token based on search type
+    api_token = APIFY_TOKEN if request.search_type == "hashtag" else APIFY_USERNAME_TOKEN
+    
+    if not api_token:
+        token_type = "APIFY_TOKEN" if request.search_type == "hashtag" else "APIFY_USERNAME_TOKEN"
+        raise HTTPException(status_code=500, detail=f"{token_type} not configured")
+    
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             run_response = await client.post(
-                f"https://api.apify.com/v2/acts/{actor_id}/runs?token={APIFY_TOKEN}",
+                f"https://api.apify.com/v2/acts/{actor_id}/runs?token={api_token}",
                 json=apify_input,
                 headers={"Content-Type": "application/json"}
             )

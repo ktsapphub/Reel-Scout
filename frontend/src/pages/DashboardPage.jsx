@@ -645,12 +645,61 @@ function ExecutionStatusModal({ isOpen, onClose, executionStatus }) {
 function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
   if (!status) return null;
 
+  // Determine which search types are available
+  const canSearchHashtags = status.hashtag_token_valid && status.hashtag_actor_accessible;
+  const canSearchUsernames = status.username_token_valid && status.username_actor_accessible;
+  const anySearchAvailable = canSearchHashtags || canSearchUsernames;
+
+  // Troubleshooting steps for each issue
+  const getTroubleshootingSteps = (issue) => {
+    const steps = {
+      hashtag_token: [
+        "1. Go to Apify Console → Settings → Integrations",
+        "2. Find or create a new API token",
+        "3. Copy the token and update APIFY_TOKEN in backend/.env",
+        "4. Restart the backend service",
+        "5. Click 'Recheck' to verify"
+      ],
+      username_token: [
+        "1. Go to Apify Console → Settings → Integrations", 
+        "2. Find or create a new API token",
+        "3. Copy the token and update APIFY_USERNAME_TOKEN in backend/.env",
+        "4. Restart the backend service",
+        "5. Click 'Recheck' to verify"
+      ],
+      username_actor: [
+        "1. Go to apify.com/apify/instagram-profile-scraper",
+        "2. Ensure you have access to the actor (click 'Try for free' if needed)",
+        "3. Check your Apify subscription allows this actor",
+        "4. Verify the actor ID 'xMc5Ga1oCONPmWJIa' in Apify console",
+        "5. Check if the actor is currently under maintenance"
+      ],
+      reel_scraper: [
+        "1. Go to apify.com/apify/instagram-reel-scraper",
+        "2. Ensure you have access to the actor (click 'Try for free' if needed)",
+        "3. Check your Apify subscription allows this actor",
+        "4. This actor requires usernames, not hashtags",
+        "5. Check Apify status page for any outages"
+      ],
+      hashtag_actor: [
+        "1. Go to apify.com/apify/instagram-hashtag-scraper",
+        "2. Ensure you have access to the actor (click 'Try for free' if needed)",
+        "3. Verify actor ID 'reGe1ST3OBgYZSsZJ' in your Apify console",
+        "4. Check your Apify credits/subscription status",
+        "5. Try running the actor manually in Apify to test"
+      ]
+    };
+    return steps[issue] || [];
+  };
+
+  const [expandedHelp, setExpandedHelp] = useState(null);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {status.connected ? (
+            {anySearchAvailable ? (
               <Wifi className="w-5 h-5 text-green-600" />
             ) : (
               <WifiOff className="w-5 h-5 text-red-600" />
@@ -660,74 +709,238 @@ function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Overall Status */}
-          <div className={`p-4 rounded-lg ${status.connected ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+          {/* Overall Status Banner */}
+          <div className={`p-4 rounded-lg ${anySearchAvailable ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
             <div className="flex items-center gap-2">
-              {status.connected ? (
+              {anySearchAvailable ? (
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               ) : (
                 <XCircle className="w-5 h-5 text-red-600" />
               )}
-              <span className={`font-medium ${status.connected ? 'text-green-800' : 'text-red-800'}`}>
-                {status.message}
+              <span className={`font-medium ${anySearchAvailable ? 'text-green-800' : 'text-red-800'}`}>
+                {anySearchAvailable 
+                  ? (canSearchHashtags && canSearchUsernames 
+                      ? "All search types available" 
+                      : canSearchHashtags 
+                        ? "Hashtag search available (username search unavailable)"
+                        : "Username search available (hashtag search unavailable)")
+                  : "No search types available - see troubleshooting below"}
               </span>
             </div>
           </div>
 
-          {/* Connection Details */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <span className="text-sm text-slate-600">Hashtag Token</span>
-                <p className="text-xs text-slate-400">For hashtag searches</p>
+          {/* Search Capability Summary */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`p-3 rounded-lg border-2 ${canSearchHashtags ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <Hash className={`w-4 h-4 ${canSearchHashtags ? 'text-green-600' : 'text-red-600'}`} />
+                <span className={`font-medium text-sm ${canSearchHashtags ? 'text-green-800' : 'text-red-800'}`}>
+                  Hashtag Search
+                </span>
               </div>
-              <Badge variant={status.hashtag_token_valid ? "default" : "destructive"} className={status.hashtag_token_valid ? "bg-green-100 text-green-800" : ""}>
-                {status.hashtag_token_valid ? "Valid" : "Invalid"}
-              </Badge>
+              <p className={`text-xs ${canSearchHashtags ? 'text-green-600' : 'text-red-600'}`}>
+                {canSearchHashtags ? '✓ Ready to use' : '✗ Not available'}
+              </p>
             </div>
-            
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <span className="text-sm text-slate-600">Username Token</span>
-                <p className="text-xs text-slate-400">For username/profile searches</p>
+            <div className={`p-3 rounded-lg border-2 ${canSearchUsernames ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <User className={`w-4 h-4 ${canSearchUsernames ? 'text-green-600' : 'text-red-600'}`} />
+                <span className={`font-medium text-sm ${canSearchUsernames ? 'text-green-800' : 'text-red-800'}`}>
+                  Username Search
+                </span>
               </div>
-              <Badge variant={status.username_token_valid ? "default" : "destructive"} className={status.username_token_valid ? "bg-green-100 text-green-800" : ""}>
-                {status.username_token_valid ? "Valid" : "Invalid"}
-              </Badge>
+              <p className={`text-xs ${canSearchUsernames ? 'text-green-600' : 'text-red-600'}`}>
+                {canSearchUsernames ? '✓ Ready to use' : '✗ Not available'}
+              </p>
             </div>
-            
-            <div className="border-t border-slate-200 pt-3">
-              <p className="text-xs text-slate-500 mb-2 font-medium">Actors</p>
+          </div>
+
+          {/* API Tokens Section */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">API Tokens</p>
             </div>
-            
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <span className="text-sm text-slate-600">Username Actor</span>
-                <p className="text-xs text-slate-400 font-mono">xMc5Ga1oCONPmWJIa</p>
+            <div className="divide-y divide-slate-100">
+              {/* Hashtag Token */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-slate-700">Hashtag Search Token</span>
+                    <p className="text-xs text-slate-400">APIFY_TOKEN in .env</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${status.hashtag_token_valid ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <div className={`w-2 h-2 rounded-full ${status.hashtag_token_valid ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-xs font-medium ${status.hashtag_token_valid ? 'text-green-700' : 'text-red-700'}`}>
+                      {status.hashtag_token_valid ? 'Connected' : 'Failed'}
+                    </span>
+                  </div>
+                </div>
+                {!status.hashtag_token_valid && (
+                  <div className="mt-2">
+                    <button 
+                      onClick={() => setExpandedHelp(expandedHelp === 'hashtag_token' ? null : 'hashtag_token')}
+                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      {expandedHelp === 'hashtag_token' ? 'Hide troubleshooting' : 'How to fix'}
+                    </button>
+                    {expandedHelp === 'hashtag_token' && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700 space-y-1">
+                        {getTroubleshootingSteps('hashtag_token').map((step, i) => (
+                          <p key={i}>{step}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <Badge variant={status.username_actor_accessible ? "default" : "destructive"} className={status.username_actor_accessible ? "bg-green-100 text-green-800" : ""}>
-                {status.username_actor_accessible ? "Accessible" : "Not Accessible"}
-              </Badge>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <span className="text-sm text-slate-600">Reel Scraper (Official)</span>
-                <p className="text-xs text-slate-400 font-mono">apify/instagram-reel-scraper</p>
+              
+              {/* Username Token */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-slate-700">Username Search Token</span>
+                    <p className="text-xs text-slate-400">APIFY_USERNAME_TOKEN in .env</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${status.username_token_valid ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <div className={`w-2 h-2 rounded-full ${status.username_token_valid ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-xs font-medium ${status.username_token_valid ? 'text-green-700' : 'text-red-700'}`}>
+                      {status.username_token_valid ? 'Connected' : 'Failed'}
+                    </span>
+                  </div>
+                </div>
+                {!status.username_token_valid && (
+                  <div className="mt-2">
+                    <button 
+                      onClick={() => setExpandedHelp(expandedHelp === 'username_token' ? null : 'username_token')}
+                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      {expandedHelp === 'username_token' ? 'Hide troubleshooting' : 'How to fix'}
+                    </button>
+                    {expandedHelp === 'username_token' && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700 space-y-1">
+                        {getTroubleshootingSteps('username_token').map((step, i) => (
+                          <p key={i}>{step}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <Badge variant={status.reel_scraper_accessible ? "default" : "destructive"} className={status.reel_scraper_accessible ? "bg-green-100 text-green-800" : ""}>
-                {status.reel_scraper_accessible ? "Accessible" : "Not Accessible"}
-              </Badge>
             </div>
-            
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <span className="text-sm text-slate-600">Hashtag Actor</span>
-                <p className="text-xs text-slate-400 font-mono">reGe1ST3OBgYZSsZJ</p>
+          </div>
+
+          {/* Apify Actors Section */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Apify Actors</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {/* Instagram Profile Scraper */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-slate-700">Instagram Profile Scraper</span>
+                    <p className="text-xs text-slate-400">apify/instagram-profile-scraper</p>
+                    <p className="text-xs text-slate-300 font-mono">ID: xMc5Ga1oCONPmWJIa</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${status.username_actor_accessible ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <div className={`w-2 h-2 rounded-full ${status.username_actor_accessible ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-xs font-medium ${status.username_actor_accessible ? 'text-green-700' : 'text-red-700'}`}>
+                      {status.username_actor_accessible ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+                {!status.username_actor_accessible && (
+                  <div className="mt-2">
+                    <button 
+                      onClick={() => setExpandedHelp(expandedHelp === 'username_actor' ? null : 'username_actor')}
+                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      {expandedHelp === 'username_actor' ? 'Hide troubleshooting' : 'How to fix'}
+                    </button>
+                    {expandedHelp === 'username_actor' && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700 space-y-1">
+                        {getTroubleshootingSteps('username_actor').map((step, i) => (
+                          <p key={i}>{step}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <Badge variant={status.hashtag_actor_accessible ? "default" : "destructive"} className={status.hashtag_actor_accessible ? "bg-green-100 text-green-800" : ""}>
-                {status.hashtag_actor_accessible ? "Accessible" : "Not Accessible"}
-              </Badge>
+
+              {/* Instagram Reel Scraper */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-slate-700">Instagram Reel Scraper</span>
+                    <p className="text-xs text-slate-400">apify/instagram-reel-scraper (Official)</p>
+                    <p className="text-xs text-slate-300 font-mono">ID: apify~instagram-reel-scraper</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${status.reel_scraper_accessible ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <div className={`w-2 h-2 rounded-full ${status.reel_scraper_accessible ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-xs font-medium ${status.reel_scraper_accessible ? 'text-green-700' : 'text-red-700'}`}>
+                      {status.reel_scraper_accessible ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+                {!status.reel_scraper_accessible && (
+                  <div className="mt-2">
+                    <button 
+                      onClick={() => setExpandedHelp(expandedHelp === 'reel_scraper' ? null : 'reel_scraper')}
+                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      {expandedHelp === 'reel_scraper' ? 'Hide troubleshooting' : 'How to fix'}
+                    </button>
+                    {expandedHelp === 'reel_scraper' && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700 space-y-1">
+                        {getTroubleshootingSteps('reel_scraper').map((step, i) => (
+                          <p key={i}>{step}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Instagram Hashtag Scraper */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-slate-700">Instagram Hashtag Scraper</span>
+                    <p className="text-xs text-slate-400">apify/instagram-hashtag-scraper</p>
+                    <p className="text-xs text-slate-300 font-mono">ID: reGe1ST3OBgYZSsZJ</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${status.hashtag_actor_accessible ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <div className={`w-2 h-2 rounded-full ${status.hashtag_actor_accessible ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-xs font-medium ${status.hashtag_actor_accessible ? 'text-green-700' : 'text-red-700'}`}>
+                      {status.hashtag_actor_accessible ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+                {!status.hashtag_actor_accessible && (
+                  <div className="mt-2">
+                    <button 
+                      onClick={() => setExpandedHelp(expandedHelp === 'hashtag_actor' ? null : 'hashtag_actor')}
+                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      {expandedHelp === 'hashtag_actor' ? 'Hide troubleshooting' : 'How to fix'}
+                    </button>
+                    {expandedHelp === 'hashtag_actor' && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700 space-y-1">
+                        {getTroubleshootingSteps('hashtag_actor').map((step, i) => (
+                          <p key={i}>{step}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -747,16 +960,30 @@ function ApifyStatusModal({ isOpen, onClose, status, onRecheck, isChecking }) {
               </div>
             </div>
           )}
+        </div>
 
-          {/* Errors */}
-          {status.errors && status.errors.length > 0 && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <Label className="text-xs text-red-700 uppercase tracking-wide">Errors</Label>
-              <ul className="mt-2 space-y-1">
-                {status.errors.map((error, idx) => (
-                  <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
-                    <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    {error}
+        <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+          <a 
+            href="https://console.apify.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Open Apify Console
+          </a>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onClose} className="border-slate-200">Close</Button>
+            <Button onClick={onRecheck} disabled={isChecking} className="bg-blue-600 hover:bg-blue-700">
+              {isChecking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wifi className="w-4 h-4 mr-2" />}
+              Recheck
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
                   </li>
                 ))}
               </ul>

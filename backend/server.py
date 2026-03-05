@@ -319,10 +319,12 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
             if user_response.status_code == 200:
                 token_valid = True
                 user_data = user_response.json().get("data", {})
+                plan_data = user_data.get("plan", {})
+                plan_name = plan_data.get("id") if isinstance(plan_data, dict) else str(plan_data) if plan_data else "N/A"
                 account_info = {
-                    "username": user_data.get("username"),
-                    "email": user_data.get("email"),
-                    "plan": user_data.get("plan"),
+                    "username": user_data.get("username", "N/A"),
+                    "email": user_data.get("email", "N/A"),
+                    "plan": plan_name,
                     "proxy_credits": user_data.get("proxy", {}).get("remainingCreditsUsd"),
                 }
             else:

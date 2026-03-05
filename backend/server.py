@@ -594,7 +594,8 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
                 "max_results": request.max_results,
                 "search_type": request.search_type,
                 "actor_id": actor_id,
-                "cache_key": cache_key
+                "cache_key": cache_key,
+                "api_token": api_token  # Store token for status polling
             }
             
             logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")

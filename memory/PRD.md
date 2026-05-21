@@ -13,7 +13,7 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 ## Code Architecture
 ```
 /app/backend/
-├── server.py           # Slim app setup + router mounting (30 lines)
+├── server.py           # Slim app setup + router mounting
 ├── config.py           # Env vars, DB, Cloudinary, JWT constants
 ├── models.py           # All Pydantic request/response models
 ├── routes/
@@ -26,10 +26,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 └── tests/test_api.py
 
 /app/frontend/src/
-├── App.js                          # Router (Login, Dashboard, History)
+├── App.js                          # Router (Login, Dashboard, History, AuditLog)
 ├── pages/
-│   ├── DashboardPage.jsx           # Orchestrator (~730 lines)
+│   ├── DashboardPage.jsx           # Orchestrator with date range picker
 │   ├── HistoryPage.jsx             # Search history with carousel
+│   ├── AuditLogPage.jsx            # Activity log table with filters
 │   └── LoginPage.jsx
 ├── components/
 │   ├── HelpPanel.jsx               # Help/workflow guide
@@ -42,11 +43,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 
 ## What's Been Implemented
 - [x] JWT authentication with allowlist
-- [x] 3 search modes: Username, Profile URL, Hashtag
+- [x] 3 search modes: Username, Profile URL (individual fields), Hashtag
 - [x] Apify integration (3 actors + dual tokens)
 - [x] Strict reel-only filtering for hashtag searches
-- [x] Cloudinary upload with progress tracking
-- [x] CSV export (with Cloudinary URLs)
+- [x] Cloudinary upload with progress tracking + optimized URLs (f_auto/q_auto/vc_auto)
+- [x] CSV export (with optimized Cloudinary URLs)
 - [x] Cost estimator, max results selector with custom input
 - [x] Stop search with partial results
 - [x] Search state persistence via localStorage
@@ -55,18 +56,19 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - [x] API Status modal with troubleshooting guides
 - [x] Help panel with workflow guide
 - [x] CSV upload for bulk usernames
-- [x] Advanced filters (date, tagged posts)
-- [x] **Previously Pulled Items** section with preview carousel, retry, and load
-- [x] **Backend refactored** into modular files (config, models, routes, services)
-- [x] **Frontend refactored** into extracted components and modals
+- [x] Profile URL tab with individual input fields + performance guidance
+- [x] Previously Pulled Items section with preview carousel, retry, and load
+- [x] **Date Range Picker** — shadcn Calendar range mode, shared across all search tabs
+- [x] **Audit Log Viewer** — /audit-log page with table, color-coded badges, search, filter, pagination
+- [x] Backend refactored into modular files
+- [x] Frontend refactored into extracted components
 
 ## Prioritized Backlog
 ### P1
-- [ ] Date range picker filter (full implementation)
-- [ ] Saved Search Presets
+- [ ] Saved Search Presets (save and re-run common search configurations)
 
 ### P2
-- [ ] Audit log viewer in UI
+- [ ] Enhanced search progress indicator
 
 ## Test Credentials
 - mydatejar@gmail.com / #Test1234

@@ -48,6 +48,8 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
         }
         if request.only_posts_newer_than:
             apify_input["onlyPostsNewerThan"] = request.only_posts_newer_than
+        if request.only_posts_older_than:
+            apify_input["onlyPostsOlderThan"] = request.only_posts_older_than
         if request.include_tagged_posts:
             apify_input["includeTaggedPosts"] = True
 
@@ -86,6 +88,10 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
             "includeTranscript": True,
             "includeDownloadedVideo": True
         }
+        if request.only_posts_newer_than:
+            apify_input["onlyPostsNewerThan"] = request.only_posts_newer_than
+        if request.only_posts_older_than:
+            apify_input["onlyPostsOlderThan"] = request.only_posts_older_than
         logger.info(f"Extracted usernames from URLs: {extracted_usernames}")
 
     elif request.search_type == "hashtag":

@@ -19,6 +19,7 @@ class SearchRequest(BaseModel):
     hashtag: Optional[str] = None
     max_results: int = 25
     only_posts_newer_than: Optional[str] = None
+    only_posts_older_than: Optional[str] = None
     include_tagged_posts: Optional[bool] = False
 
 class ReelResult(BaseModel):

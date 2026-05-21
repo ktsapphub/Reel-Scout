@@ -165,5 +165,110 @@ class TestSearchHistory:
         print(f"SUCCESS: Search history returns {len(data['history'])} items")
 
 
+class TestAuditLogs:
+    """Tests for /api/audit-logs endpoint - NEW P2 feature"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Get auth token before tests"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "mydatejar@gmail.com",
+            "password": "#Test1234"
+        })
+        if response.status_code == 200:
+            self.token = response.json()["token"]
+            self.headers = {"Authorization": f"Bearer {self.token}"}
+        else:
+            pytest.skip("Could not authenticate")
+    
+    def test_get_audit_logs_authenticated(self):
+        """Test fetching audit logs with valid auth"""
+        response = requests.get(f"{BASE_URL}/api/audit-logs", headers=self.headers)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        
+        data = response.json()
+        assert "logs" in data, "Response should have 'logs' key"
+        assert "total" in data, "Response should have 'total' key"
+        assert isinstance(data["logs"], list), "Logs should be a list"
+        assert isinstance(data["total"], int), "Total should be an integer"
+        print(f"SUCCESS: Audit logs returns {len(data['logs'])} logs, total: {data['total']}")
+    
+    def test_get_audit_logs_with_action_filter(self):
+        """Test filtering audit logs by action type"""
+        response = requests.get(f"{BASE_URL}/api/audit-logs?action=login", headers=self.headers)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        
+        data = response.json()
+        assert "logs" in data, "Response should have 'logs' key"
+        # All returned logs should have action=login
+        for log in data["logs"]:
+            assert log.get("action") == "login", f"Expected action=login, got {log.get('action')}"
+        print(f"SUCCESS: Audit logs filter by action=login returns {len(data['logs'])} logs")
+    
+    def test_get_audit_logs_with_pagination(self):
+        """Test audit logs pagination with limit and skip"""
+        response = requests.get(f"{BASE_URL}/api/audit-logs?limit=5&skip=0", headers=self.headers)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        
+        data = response.json()
+        assert len(data["logs"]) <= 5, "Should return at most 5 logs"
+        print(f"SUCCESS: Audit logs pagination works, returned {len(data['logs'])} logs")
+    
+    def test_get_audit_logs_unauthenticated(self):
+        """Test audit logs without auth token"""
+        response = requests.get(f"{BASE_URL}/api/audit-logs")
+        assert response.status_code in [401, 403], f"Expected 401/403, got {response.status_code}"
+        print("SUCCESS: Audit logs requires authentication")
+    
+    def test_audit_log_entry_structure(self):
+        """Test that audit log entries have correct structure"""
+        response = requests.get(f"{BASE_URL}/api/audit-logs?limit=1", headers=self.headers)
+        assert response.status_code == 200
+        
+        data = response.json()
+        if len(data["logs"]) > 0:
+            log = data["logs"][0]
+            # Check required fields
+            assert "action" in log, "Log should have 'action' field"
+            assert "user_email" in log, "Log should have 'user_email' field"
+            assert "timestamp" in log, "Log should have 'timestamp' field"
+            print(f"SUCCESS: Audit log entry has correct structure: action={log['action']}, user={log['user_email']}")
+        else:
+            print("INFO: No audit logs found to verify structure")
+
+
+class TestSearchRequestDateRange:
+    """Tests for date range parameters in search request - NEW P1 feature"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Get auth token before tests"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "mydatejar@gmail.com",
+            "password": "#Test1234"
+        })
+        if response.status_code == 200:
+            self.token = response.json()["token"]
+            self.headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+        else:
+            pytest.skip("Could not authenticate")
+    
+    def test_search_accepts_date_range_params(self):
+        """Test that search endpoint accepts only_posts_newer_than and only_posts_older_than"""
+        # This test verifies the endpoint accepts the parameters without error
+        # We don't actually run the search (would cost Apify credits)
+        payload = {
+            "search_type": "username",
+            "usernames": ["testuser_nonexistent_12345"],
+            "max_results": 5,
+            "only_posts_newer_than": "2024-01-01",
+            "only_posts_older_than": "2025-01-01"
+        }
+        response = requests.post(f"{BASE_URL}/api/reels/search/start", json=payload, headers=self.headers)
+        # Should not return 422 (validation error) - the params should be accepted
+        assert response.status_code != 422, f"Date range params should be accepted, got 422: {response.text}"
+        print(f"SUCCESS: Search endpoint accepts date range parameters (status: {response.status_code})")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

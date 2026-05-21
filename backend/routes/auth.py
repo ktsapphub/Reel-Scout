@@ -54,6 +54,15 @@ async def get_me(user_email: str = Depends(get_current_user)):
 
 
 @router.get("/audit-logs")
-async def get_audit_logs(user_email: str = Depends(get_current_user)):
-    logs = await db.audit_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(100)
-    return {"logs": logs}
+async def get_audit_logs(
+    user_email: str = Depends(get_current_user),
+    action: str = None,
+    limit: int = 100,
+    skip: int = 0
+):
+    query = {}
+    if action:
+        query["action"] = action
+    total = await db.audit_logs.count_documents(query)
+    logs = await db.audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(limit).to_list(limit)
+    return {"logs": logs, "total": total}

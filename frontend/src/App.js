@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HistoryPage from "@/pages/HistoryPage";
+import AuditLogPage from "@/pages/AuditLogPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -63,6 +64,20 @@ function App() {
                   token={token}
                   userEmail={userEmail}
                   onLogout={handleLogout}
+                  backendUrl={BACKEND_URL}
+                />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/audit-log"
+            element={
+              token ? (
+                <AuditLogPage
+                  token={token}
+                  userEmail={userEmail}
                   backendUrl={BACKEND_URL}
                 />
               ) : (

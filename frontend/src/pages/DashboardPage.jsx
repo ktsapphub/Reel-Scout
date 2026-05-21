@@ -21,7 +21,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Instagram, Search, Download, LogOut, User, Hash,
@@ -29,9 +28,13 @@ import {
   DollarSign, Clock, Plus, X, Square, HelpCircle,
   FileUp, FileDown, History, Settings, Cloud, Check,
   ExternalLink, RefreshCw, Eye, ChevronDown, ChevronUp,
+  ClipboardList, CalendarIcon,
 } from "lucide-react";
 import axios from "axios";
+import { format } from "date-fns";
 
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UploadProgressModal } from "@/components/modals/UploadProgressModal";
 import { ExecutionStatusModal } from "@/components/modals/ExecutionStatusModal";
 import { ApifyStatusModal } from "@/components/modals/ApifyStatusModal";
@@ -47,11 +50,11 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchType, setSearchType] = useState("username");
   const [usernames, setUsernames] = useState([""]);
-  const [urlInput, setUrlInput] = useState("");
+  const [profileUrls, setProfileUrls] = useState([""]);
   const [hashtagInput, setHashtagInput] = useState("");
   const [maxResults, setMaxResults] = useState(25);
   const [includeTaggedPosts, setIncludeTaggedPosts] = useState(false);
-  const [onlyPostsNewerThan, setOnlyPostsNewerThan] = useState("");
+  const [dateRange, setDateRange] = useState({ from: undefined, to: undefined });
 
   const [runId, setRunId] = useState(() => {
     try { return localStorage.getItem("ig_reel_finder_runId") || null; } catch { return null; }
@@ -156,6 +159,10 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const removeUsernameField = (index) => { if (usernames.length > 1) setUsernames(usernames.filter((_, i) => i !== index)); };
   const updateUsername = (index, value) => { const n = [...usernames]; n[index] = value; setUsernames(n); };
 
+  const addProfileUrlField = () => { if (profileUrls.length < MAX_USERNAME_FIELDS) setProfileUrls([...profileUrls, ""]); };
+  const removeProfileUrlField = (index) => { if (profileUrls.length > 1) setProfileUrls(profileUrls.filter((_, i) => i !== index)); };
+  const updateProfileUrl = (index, value) => { const n = [...profileUrls]; n[index] = value; setProfileUrls(n); };
+
   const handleCsvUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -249,15 +256,19 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
 
   const handleSearch = async () => {
     let payload = { search_type: searchType, max_results: maxResults };
+
+    // Shared date range filter
+    if (dateRange.from) payload.only_posts_newer_than = format(dateRange.from, "yyyy-MM-dd");
+    if (dateRange.to) payload.only_posts_older_than = format(dateRange.to, "yyyy-MM-dd");
+
     if (searchType === "username") {
       const valid = usernames.map(u => u.trim().replace(/^@/, "")).filter(u => u);
       if (!valid.length) { toast.error("Please enter at least one username"); return; }
       payload.usernames = valid;
-      if (onlyPostsNewerThan) payload.only_posts_newer_than = onlyPostsNewerThan;
       if (includeTaggedPosts) payload.include_tagged_posts = true;
     } else if (searchType === "url") {
-      const urls = urlInput.split("\n").map(u => u.trim()).filter(u => u);
-      if (!urls.length) { toast.error("Please enter at least one URL"); return; }
+      const urls = profileUrls.map(u => u.trim()).filter(u => u);
+      if (!urls.length) { toast.error("Please enter at least one profile"); return; }
       payload.urls = urls;
     } else if (searchType === "hashtag") {
       const hashtag = hashtagInput.replace(/^#/, "").trim();
@@ -401,6 +412,9 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               <Button variant="outline" size="sm" onClick={() => navigate("/history")} className="border-slate-200 text-slate-600 hover:text-slate-900" data-testid="history-btn">
                 <History className="w-4 h-4 mr-2" />History
               </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/audit-log")} className="border-slate-200 text-slate-600 hover:text-slate-900" data-testid="audit-log-btn">
+                <ClipboardList className="w-4 h-4 mr-2" />Audit Log
+              </Button>
               <Badge variant="outline" className="text-slate-600 border-slate-200"><User className="w-3 h-3 mr-1" />{userEmail}</Badge>
               <Button variant="ghost" size="sm" onClick={onLogout} className="text-slate-600 hover:text-slate-900" data-testid="logout-btn">
                 <LogOut className="w-4 h-4 mr-2" />Sign Out
@@ -484,11 +498,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                     <div>
-                      <Label className="text-slate-700 font-medium text-sm mb-2 block">Posts Newer Than</Label>
-                      <Input type="date" value={onlyPostsNewerThan} onChange={(e) => setOnlyPostsNewerThan(e.target.value)} className="h-9 border-slate-200 text-sm" data-testid="date-filter-input" />
-                      <p className="text-xs text-slate-400 mt-1">Leave empty for all dates</p>
-                    </div>
-                    <div>
                       <Label className="text-slate-700 font-medium text-sm mb-2 block">Include Tagged Posts</Label>
                       <div className="flex items-center gap-2 mt-2">
                         <Checkbox checked={includeTaggedPosts} onCheckedChange={setIncludeTaggedPosts} data-testid="include-tagged-checkbox" />
@@ -500,9 +509,46 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
 
                 <TabsContent value="url" className="mt-4 space-y-4">
                   <div>
-                    <Label className="text-slate-700 font-medium">Instagram Profile URL(s)</Label>
-                    <p className="text-sm text-slate-500 mb-2">Enter profile URLs (one per line)</p>
-                    <Textarea placeholder="https://www.instagram.com/natgeo&#10;https://www.instagram.com/nike" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} className="h-24 border-slate-200 focus:border-blue-500 font-mono text-sm" data-testid="url-input" />
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-slate-700 font-medium">Instagram Profile(s)</Label>
+                      <span className="text-xs text-slate-400">{profileUrls.length}/{MAX_USERNAME_FIELDS} fields</span>
+                    </div>
+                    <p className="text-sm text-slate-500 mb-3">Enter a full URL or just the username — both work</p>
+                    <div className="space-y-2">
+                      {profileUrls.map((url, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                              placeholder="natgeo  or  https://instagram.com/natgeo"
+                              value={url}
+                              onChange={(e) => updateProfileUrl(index, e.target.value)}
+                              className="h-10 pl-10 border-slate-200 focus:border-blue-500 text-sm"
+                              data-testid={`url-input-${index}`}
+                            />
+                          </div>
+                          {profileUrls.length > 1 && (
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeProfileUrlField(index)} className="h-10 w-10 text-slate-400 hover:text-red-500" data-testid={`remove-url-${index}`}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      {profileUrls.length < MAX_USERNAME_FIELDS && (
+                        <Button type="button" variant="outline" size="sm" onClick={addProfileUrlField} className="border-dashed border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600" data-testid="add-url-btn">
+                          <Plus className="w-4 h-4 mr-1" />Add Profile
+                        </Button>
+                      )}
+                      {profileUrls.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setProfileUrls([""])} className="text-slate-500 hover:text-red-600"><X className="w-3 h-3 mr-1" />Clear All</Button>
+                      )}
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                      <p className="text-xs font-semibold text-blue-700 mb-1">Performance Sweet Spot</p>
+                      <p className="text-xs text-blue-600">Up to <strong>5 accounts</strong> with <strong>25 results each</strong> returns fast, reliable data. Going above 10 accounts or 100+ results per account increases run time and cost significantly.</p>
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -517,6 +563,41 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                   </div>
                 </TabsContent>
               </Tabs>
+
+              {/* Date Range Filter - shared across all search types */}
+              <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">
+                <div>
+                  <Label className="text-slate-700 font-medium text-sm mb-2 block">Date Range</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="h-10 justify-start text-left font-normal border-slate-200 min-w-[260px]" data-testid="date-range-trigger">
+                        <CalendarIcon className="w-4 h-4 mr-2 text-slate-400" />
+                        {dateRange.from ? (
+                          dateRange.to ? (
+                            <span className="text-slate-900">{format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")}</span>
+                          ) : (
+                            <span className="text-slate-900">From {format(dateRange.from, "MMM d, yyyy")}</span>
+                          )
+                        ) : (
+                          <span className="text-slate-400">Pick a date range (optional)</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} disabled={{ after: new Date() }}
+                        data-testid="date-range-calendar" />
+                      <div className="flex items-center justify-between p-3 border-t border-slate-200">
+                        <p className="text-xs text-slate-500">Filters reels by post date</p>
+                        {(dateRange.from || dateRange.to) && (
+                          <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} className="text-xs text-slate-500 hover:text-red-600 h-7" data-testid="clear-date-range-btn">
+                            <X className="w-3 h-3 mr-1" />Clear
+                          </Button>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
 
               {/* Controls */}
               <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">

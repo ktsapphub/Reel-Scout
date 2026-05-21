@@ -381,6 +381,12 @@ async def export_reels(request: ExportRequest, user_email: str = Depends(get_cur
     date_str = datetime.now().strftime("%m-%d-%y")
     filename = f"{owners[0]}_{date_str}_results.csv" if len(owners) == 1 else f"multiple_owners_{date_str}_results.csv"
 
+    def optimize_cloudinary_url(url: str) -> str:
+        """Insert f_auto/q_auto/vc_auto between /upload/ and /v in Cloudinary URLs."""
+        if not url or "/upload/" not in url:
+            return url
+        return url.replace("/upload/", "/upload/f_auto/q_auto/vc_auto/", 1)
+
     output = io.StringIO()
     writer = csv.writer(output)
     headers = [
@@ -394,7 +400,15 @@ async def export_reels(request: ExportRequest, user_email: str = Depends(get_cur
         tagged_users = reel.get("tagged_users", [])
         if isinstance(tagged_users, list):
             tagged_users = ", ".join(tagged_users)
-        writer.writerow([reel.get(h, "") if h != "tagged_users" else tagged_users for h in headers])
+        row = []
+        for h in headers:
+            if h == "tagged_users":
+                row.append(tagged_users)
+            elif h == "cloudinary_url":
+                row.append(optimize_cloudinary_url(reel.get("cloudinary_url", "")))
+            else:
+                row.append(reel.get(h, ""))
+        writer.writerow(row)
     output.seek(0)
 
     await log_audit("export", user_email, {"reels_count": len(reels), "filename": filename})

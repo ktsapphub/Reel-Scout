@@ -76,7 +76,7 @@ export function ReelCard({ reel, isSelected, onToggleSelect, isExpanded, onToggl
                 <Label className="text-xs text-slate-500 uppercase tracking-wide">Tagged Users</Label>
                 <div className="flex items-center gap-2 flex-wrap mt-1">
                   <Users className="w-4 h-4 text-slate-400" />
-                  {reel.tagged_users.map((user, i) => <Badge key={i} variant="secondary" className="text-xs">@{user}</Badge>)}
+                  {reel.tagged_users.map((user) => <Badge key={user} variant="secondary" className="text-xs">@{user}</Badge>)}
                 </div>
               </div>
             )}

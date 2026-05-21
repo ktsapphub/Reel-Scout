@@ -29,7 +29,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return verify_token(credentials.credentials)
 
 
-async def log_audit(action: str, user_email: str, details: dict = {}):
+async def log_audit(action: str, user_email: str, details: dict = None):
+    details = details or {}
     audit = AuditLog(action=action, user_email=user_email, details=details)
     doc = audit.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()

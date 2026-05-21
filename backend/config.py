@@ -29,13 +29,13 @@ cloudinary.config(
 )
 
 # JWT
-JWT_SECRET = os.environ.get("JWT_SECRET", "default_secret")
+JWT_SECRET = os.environ.get("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
 # Auth
 ALLOWLIST_USERS = os.environ.get("ALLOWLIST_USERS", "").split(",")
-USER_PASSWORD = "#Test1234"
+USER_PASSWORD = os.environ.get("USER_PASSWORD")
 
 # Apify
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN")

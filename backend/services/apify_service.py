@@ -1,8 +1,8 @@
-import httpx
 import hashlib
 import re
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
+import httpx
 
 from config import (
     logger, db, APIFY_TOKEN, APIFY_USERNAME_TOKEN,
@@ -15,6 +15,10 @@ from models import ReelResult
 # In-memory store for active runs
 active_runs: Dict[str, Dict[str, Any]] = {}
 
+IMAGE_TYPES = frozenset(["image", "photo", "sidecar", "graphimage", "carousel", "graphsidecar", "graphstoryimage"])
+
+
+# --- Cache helpers ---
 
 async def get_or_create_cache_store() -> Optional[str]:
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -45,7 +49,7 @@ def generate_cache_key(search_type: str, usernames: List[str] = None, hashtag: s
         key_data = f"hashtag:{hashtag.lower().strip()}:limit:{max_results}"
     else:
         return None
-    hash_obj = hashlib.md5(key_data.encode())
+    hash_obj = hashlib.sha256(key_data.encode())
     return f"{search_type}_{hash_obj.hexdigest()[:16]}"
 
 
@@ -96,78 +100,129 @@ async def save_to_cache(cache_key: str, results: List):
             logger.error(f"Error saving to cache: {e}")
 
 
+# --- Item extraction helpers ---
+
 def extract_reel_id(url: str) -> str:
     match = re.search(r'/(?:reel|p)/([A-Za-z0-9_-]+)', url)
     return match.group(1) if match else url
 
 
-def generate_content_slug(transcript: str) -> str:
-    if not transcript:
-        return "reel"
-    slug = transcript[:60].lower()
-    slug = re.sub(r'[^a-z0-9\s]', '', slug)
-    slug = re.sub(r'\s+', '-', slug.strip())
-    return slug[:40] if slug else "reel"
+def _extract_video_url(item: Dict) -> Optional[str]:
+    """Extract video URL from various Apify response shapes."""
+    url = (
+        item.get("videoUrl") or
+        item.get("video_url") or
+        item.get("videoPlaybackUrl") or
+        item.get("video_playback_url") or
+        item.get("video")
+    )
+    if url:
+        return url
+    videos = item.get("videos")
+    if isinstance(videos, list) and videos:
+        first = videos[0]
+        if isinstance(first, dict):
+            return first.get("url")
+    return None
 
+
+def _is_reel_item(item: Dict, item_type: str, media_type: str) -> bool:
+    """Check if item is explicitly marked as a reel/video."""
+    item_url = str(item.get("url", "") or item.get("shortCode", "") or "")
+    return (
+        "reel" in item_type or
+        "reel" in media_type or
+        "/reel/" in item_url or
+        "/reels/" in item_url or
+        item_type == "video" or
+        item_type == "clip"
+    )
+
+
+def _extract_music_info(item: Dict) -> tuple:
+    """Extract music artist, song, and original audio flag."""
+    music_info = item.get("musicInfo") or item.get("music_info") or {}
+    if isinstance(music_info, dict):
+        artist = music_info.get("artist_name") or music_info.get("artistName") or ""
+        song = music_info.get("song_name") or music_info.get("songName") or music_info.get("title") or ""
+        original = music_info.get("is_original_audio") or music_info.get("isOriginalAudio") or False
+        return artist, song, original
+    return "", "", False
+
+
+def _extract_tagged_users(item: Dict) -> List[str]:
+    """Extract tagged users from various response shapes."""
+    raw_tagged = item.get("taggedUsers") or item.get("tagged_users") or []
+    tagged = []
+    if isinstance(raw_tagged, list):
+        for user in raw_tagged:
+            if isinstance(user, str):
+                tagged.append(user)
+            elif isinstance(user, dict):
+                username = user.get("username") or user.get("user") or user.get("name") or ""
+                if username:
+                    tagged.append(username)
+    return tagged
+
+
+def _should_skip_item(item_type: str, media_type: str, video_url: Optional[str], is_video: bool, is_reel: bool) -> Optional[str]:
+    """Return skip reason if item should be filtered out, else None."""
+    if item_type in IMAGE_TYPES or media_type in IMAGE_TYPES:
+        return "image"
+    if video_url or is_video or is_reel:
+        return None
+    return "no_video"
+
+
+def _build_reel(item: Dict, video_url: Optional[str], duration: float, tagged_users: List[str], music: tuple) -> ReelResult:
+    """Build a ReelResult from raw item data."""
+    reel_url = item.get("url") or ""
+    if not reel_url and item.get("shortCode"):
+        reel_url = f"https://www.instagram.com/reel/{item.get('shortCode')}/"
+
+    return ReelResult(
+        owner_username=item.get("ownerUsername") or item.get("owner_username") or item.get("username") or "",
+        owner_full_name=item.get("ownerFullName") or item.get("owner_full_name") or item.get("fullName") or "",
+        reel_url=reel_url,
+        downloaded_video_url=item.get("videoUrl") or item.get("video_url") or item.get("downloadedVideoUrl") or "",
+        original_video_url=item.get("videoUrl") or item.get("displayUrl") or "",
+        timestamp=item.get("timestamp") or item.get("taken_at") or item.get("takenAt") or "",
+        video_duration_seconds=duration or 0,
+        video_transcript=item.get("transcript") or item.get("caption") or item.get("text") or "",
+        tagged_users=tagged_users,
+        music_artist=music[0],
+        music_song=music[1],
+        music_original_audio=music[2],
+    )
+
+
+# --- Main processor ---
 
 async def process_apify_results(items: List[Dict], user_email: str, search_type: str = "unknown") -> List[ReelResult]:
-    """Process Apify results into ReelResult objects - ONLY REELS"""
+    """Process Apify results into ReelResult objects — ONLY REELS."""
     results = []
-    seen_ids = set()
-    skipped_images = 0
-    skipped_no_video = 0
-    skipped_no_url = 0
+    seen_ids: set = set()
+    skipped = {"image": 0, "no_video": 0, "no_url": 0}
 
     saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
     saved_urls = {r["reel_url"] for r in saved_reels}
 
-    logger.info(f"Processing {len(items)} items from Apify (search_type: {search_type}, filtering for reels only)")
-
+    logger.info(f"Processing {len(items)} items from Apify (search_type: {search_type})")
     if items:
-        first_item = items[0]
-        logger.info(f"=== SAMPLE APIFY RESPONSE (first item) ===")
-        logger.info(f"Keys: {list(first_item.keys())}")
-        logger.info(f"type: {first_item.get('type')}, productType: {first_item.get('productType')}, mediaType: {first_item.get('mediaType')}")
-        logger.info(f"isVideo: {first_item.get('isVideo')}, videoUrl: {str(first_item.get('videoUrl', 'NOT_FOUND'))[:100]}")
-        logger.info(f"===========================================")
+        first = items[0]
+        logger.info(f"Sample keys: {list(first.keys())}, type={first.get('type')}, isVideo={first.get('isVideo')}")
 
     for item in items:
         try:
             item_type = (item.get("type", "") or item.get("productType", "") or "").lower()
             media_type = (item.get("mediaType", "") or item.get("media_type", "") or "").lower()
-
-            video_url = (
-                item.get("videoUrl") or
-                item.get("video_url") or
-                item.get("videoPlaybackUrl") or
-                item.get("video_playback_url") or
-                item.get("video") or
-                item.get("videos", [{}])[0].get("url") if isinstance(item.get("videos"), list) else None or
-                None
-            )
-
+            video_url = _extract_video_url(item)
             is_video = item.get("isVideo", False) or item.get("is_video", False)
-            item_url = str(item.get("url", "") or item.get("shortCode", "") or "")
-            is_reel = (
-                "reel" in item_type or
-                "reel" in media_type or
-                "/reel/" in item_url or
-                "/reels/" in item_url or
-                item_type == "video" or
-                item_type == "clip"
-            )
+            is_reel = _is_reel_item(item, item_type, media_type)
 
-            image_types = ["image", "photo", "sidecar", "graphimage", "carousel", "graphsidecar", "graphstoryimage"]
-            if item_type in image_types or media_type in image_types:
-                skipped_images += 1
-                continue
-
-            if video_url:
-                pass
-            elif is_video or is_reel:
-                pass
-            else:
-                skipped_no_video += 1
+            skip_reason = _should_skip_item(item_type, media_type, video_url, is_video, is_reel)
+            if skip_reason:
+                skipped[skip_reason] = skipped.get(skip_reason, 0) + 1
                 continue
 
             duration = item.get("videoDuration") or item.get("video_duration") or item.get("duration") or 0
@@ -177,9 +232,8 @@ async def process_apify_results(items: List[Dict], user_email: str, search_type:
             reel_url = item.get("url") or ""
             if not reel_url and item.get("shortCode"):
                 reel_url = f"https://www.instagram.com/reel/{item.get('shortCode')}/"
-
             if not reel_url:
-                skipped_no_url += 1
+                skipped["no_url"] += 1
                 continue
 
             reel_id = extract_reel_id(reel_url)
@@ -187,49 +241,13 @@ async def process_apify_results(items: List[Dict], user_email: str, search_type:
                 continue
             seen_ids.add(reel_id)
 
-            music_info = item.get("musicInfo") or item.get("music_info") or {}
-            if isinstance(music_info, dict):
-                music_artist = music_info.get("artist_name") or music_info.get("artistName") or ""
-                music_song = music_info.get("song_name") or music_info.get("songName") or music_info.get("title") or ""
-                music_original = music_info.get("is_original_audio") or music_info.get("isOriginalAudio") or False
-            else:
-                music_artist = music_song = ""
-                music_original = False
-
-            raw_tagged = item.get("taggedUsers") or item.get("tagged_users") or []
-            tagged_users = []
-            if isinstance(raw_tagged, list):
-                for user in raw_tagged:
-                    if isinstance(user, str):
-                        tagged_users.append(user)
-                    elif isinstance(user, dict):
-                        username = user.get("username") or user.get("user") or user.get("name") or ""
-                        if username:
-                            tagged_users.append(username)
-
-            downloaded_url = item.get("videoUrl") or item.get("video_url") or item.get("downloadedVideoUrl") or ""
-            original_url = item.get("videoUrl") or item.get("displayUrl") or ""
-            transcript = item.get("transcript") or item.get("caption") or item.get("text") or ""
-
-            reel = ReelResult(
-                owner_username=item.get("ownerUsername") or item.get("owner_username") or item.get("username") or "",
-                owner_full_name=item.get("ownerFullName") or item.get("owner_full_name") or item.get("fullName") or "",
-                reel_url=reel_url,
-                downloaded_video_url=downloaded_url,
-                original_video_url=original_url,
-                timestamp=item.get("timestamp") or item.get("taken_at") or item.get("takenAt") or "",
-                video_duration_seconds=duration or 0,
-                video_transcript=transcript,
-                tagged_users=tagged_users,
-                music_artist=music_artist,
-                music_song=music_song,
-                music_original_audio=music_original
-            )
-            results.append(reel)
+            tagged_users = _extract_tagged_users(item)
+            music = _extract_music_info(item)
+            results.append(_build_reel(item, video_url, duration, tagged_users, music))
 
         except Exception as e:
             logger.error(f"Error processing item: {e}")
             continue
 
-    logger.info(f"Processed {len(results)} valid reels from {len(items)} items (skipped: {skipped_images} images, {skipped_no_video} non-videos, {skipped_no_url} no-url)")
+    logger.info(f"Processed {len(results)} reels from {len(items)} items (skipped: {skipped})")
     return results

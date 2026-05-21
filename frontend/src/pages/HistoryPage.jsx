@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -354,16 +354,12 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
   const [inlinePreview, setInlinePreview] = useState({});
   const [loadingInline, setLoadingInline] = useState({});
 
-  const api = axios.create({
+  const api = useMemo(() => axios.create({
     baseURL: `${backendUrl}/api`,
     headers: { Authorization: `Bearer ${token}` },
-  });
+  }), [backendUrl, token]);
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get("/search-history");
@@ -375,7 +371,11 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   const loadCachedSearch = async (cacheKey) => {
     navigate(`/?load=${encodeURIComponent(cacheKey)}`);

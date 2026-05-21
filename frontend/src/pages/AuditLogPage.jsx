@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,12 +59,12 @@ export default function AuditLogPage({ token, userEmail, backendUrl }) {
   const [actionFilter, setActionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const api = axios.create({
+  const api = useMemo(() => axios.create({
     baseURL: `${backendUrl}/api`,
     headers: { Authorization: `Bearer ${token}` },
-  });
+  }), [backendUrl, token]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const params = { limit: PAGE_SIZE, skip: page * PAGE_SIZE };
@@ -77,9 +77,9 @@ export default function AuditLogPage({ token, userEmail, backendUrl }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [api, page, actionFilter]);
 
-  useEffect(() => { fetchLogs(); }, [page, actionFilter]);
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 

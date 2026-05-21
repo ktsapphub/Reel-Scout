@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,10 +101,46 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [previewData, setPreviewData] = useState({});
   const [loadingPreview, setLoadingPreview] = useState({});
 
-  const api = axios.create({
+  const api = useMemo(() => axios.create({
     baseURL: `${backendUrl}/api`,
     headers: { Authorization: `Bearer ${token}` },
-  });
+  }), [backendUrl, token]);
+
+  const showExecutionResult = useCallback((status, message, error = null, resultsCount = 0, searchRunId = null) => {
+    setExecutionStatus({ status, message, error, results_count: resultsCount, run_id: searchRunId });
+    setShowStatusModal(true);
+  }, []);
+
+  const pollSearchStatus = useCallback(async (searchRunId) => {
+    try {
+      const response = await api.get(`/reels/search/status/${searchRunId}`);
+      const { status, progress: prog, estimated_seconds_remaining, results: searchResults, total, message: msg, error, items_processed } = response.data;
+      setProgress(prog); setEstimatedTime(estimated_seconds_remaining); setItemsProcessed(items_processed || 0);
+      if (status === "SUCCEEDED") {
+        clearInterval(pollIntervalRef.current); pollIntervalRef.current = null;
+        setSearching(false); setRunId(null); setResults(searchResults || []); setProgress(100); setItemsProcessed(0); setUploadedReelIds(new Set());
+        showExecutionResult("SUCCEEDED", msg || `Successfully retrieved ${total} reels`, null, total, searchRunId);
+      } else if (status === "FAILED" || status === "TIMED-OUT") {
+        clearInterval(pollIntervalRef.current); pollIntervalRef.current = null;
+        setSearching(false); setRunId(null); setProgress(0); setItemsProcessed(0);
+        showExecutionResult(status, msg, error, 0, searchRunId);
+      } else if (status === "ABORTED") {
+        clearInterval(pollIntervalRef.current); pollIntervalRef.current = null;
+        setSearching(false); setRunId(null); setProgress(0); setItemsProcessed(0);
+        showExecutionResult("ABORTED", "Search was stopped by user", null, 0, searchRunId);
+      }
+    } catch (err) { console.error("Poll error:", err); }
+  }, [api, showExecutionResult]);
+
+  const loadCachedSearch = useCallback(async (cacheKey) => {
+    setSearching(true); setMessage(""); setResults([]); setSelectedIds(new Set()); setUploadedReelIds(new Set()); setCurrentPage(1);
+    try {
+      const response = await api.get(`/search-history/${encodeURIComponent(cacheKey)}`);
+      setResults(response.data.results || []);
+      setSearching(false);
+      toast.success(`Loaded ${response.data.total} cached results from ${new Date(response.data.cached_at).toLocaleDateString()}`);
+    } catch { setSearching(false); toast.error("Failed to load cached search"); }
+  }, [api]);
 
   // LocalStorage sync
   useEffect(() => { localStorage.setItem("ig_reel_finder_results", JSON.stringify(results)); }, [results]);
@@ -129,31 +165,19 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       pollIntervalRef.current = setInterval(() => pollSearchStatus(savedRunId), 3000);
     }
     return () => { if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; } };
-  }, []);
-
-  useEffect(() => { return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); }; }, []);
+  }, [pollSearchStatus]);
 
   // Load cached search from URL param
   useEffect(() => {
     const loadParam = searchParams.get("load");
     if (loadParam) { loadCachedSearch(loadParam); setSearchParams({}); }
-  }, [searchParams]);
+  }, [searchParams, loadCachedSearch, setSearchParams]);
 
   const estimatedCost = ((maxResults / 1000) * 2.6).toFixed(2);
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE);
   const paginatedResults = results.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
   const hasUploadedSelected = Array.from(selectedIds).some(id => uploadedReelIds.has(id));
   const allSelectedUploaded = selectedIds.size > 0 && Array.from(selectedIds).every(id => uploadedReelIds.has(id));
-
-  const loadCachedSearch = async (cacheKey) => {
-    setSearching(true); setMessage(""); setResults([]); setSelectedIds(new Set()); setUploadedReelIds(new Set()); setCurrentPage(1);
-    try {
-      const response = await api.get(`/search-history/${encodeURIComponent(cacheKey)}`);
-      setResults(response.data.results || []);
-      setSearching(false);
-      toast.success(`Loaded ${response.data.total} cached results from ${new Date(response.data.cached_at).toLocaleDateString()}`);
-    } catch { setSearching(false); toast.error("Failed to load cached search"); }
-  };
 
   const addUsernameField = () => { if (usernames.length < MAX_USERNAME_FIELDS) setUsernames([...usernames, ""]); };
   const removeUsernameField = (index) => { if (usernames.length > 1) setUsernames(usernames.filter((_, i) => i !== index)); };
@@ -208,32 +232,6 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       setApifyStatus({ connected: false, token_valid: false, username_actor_accessible: false, hashtag_actor_accessible: false, errors: [error.message], message: "Failed" });
       setShowApifyModal(true);
     } finally { setCheckingApify(false); }
-  };
-
-  const showExecutionResult = (status, message, error = null, resultsCount = 0, searchRunId = null) => {
-    setExecutionStatus({ status, message, error, results_count: resultsCount, run_id: searchRunId });
-    setShowStatusModal(true);
-  };
-
-  const pollSearchStatus = async (searchRunId) => {
-    try {
-      const response = await api.get(`/reels/search/status/${searchRunId}`);
-      const { status, progress: prog, estimated_seconds_remaining, results: searchResults, total, message: msg, error, items_processed } = response.data;
-      setProgress(prog); setEstimatedTime(estimated_seconds_remaining); setItemsProcessed(items_processed || 0);
-      if (status === "SUCCEEDED") {
-        clearInterval(pollIntervalRef.current); pollIntervalRef.current = null;
-        setSearching(false); setRunId(null); setResults(searchResults || []); setProgress(100); setItemsProcessed(0); setUploadedReelIds(new Set());
-        showExecutionResult("SUCCEEDED", msg || `Successfully retrieved ${total} reels`, null, total, searchRunId);
-      } else if (status === "FAILED" || status === "TIMED-OUT") {
-        clearInterval(pollIntervalRef.current); pollIntervalRef.current = null;
-        setSearching(false); setRunId(null); setProgress(0); setItemsProcessed(0);
-        showExecutionResult(status, msg, error, 0, searchRunId);
-      } else if (status === "ABORTED") {
-        clearInterval(pollIntervalRef.current); pollIntervalRef.current = null;
-        setSearching(false); setRunId(null); setProgress(0); setItemsProcessed(0);
-        showExecutionResult("ABORTED", "Search was stopped by user", null, 0, searchRunId);
-      }
-    } catch (error) { console.error("Poll error:", error); }
   };
 
   const handleStopSearch = async () => {

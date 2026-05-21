@@ -7,61 +7,55 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 - **Frontend**: React + Tailwind CSS + shadcn/ui — modular components
 - **Backend**: FastAPI (modular: config, models, routes, services)
 - **Database**: MongoDB (audit logs, saved reels index)
-- **Auth**: JWT with email allowlist
+- **Auth**: JWT with email allowlist (credentials in env vars)
 - **Integrations**: Apify (3 actors), Cloudinary
 
 ## Code Architecture
 ```
 /app/backend/
 ├── server.py           # Slim app setup + router mounting
-├── config.py           # Env vars, DB, Cloudinary, JWT constants
+├── config.py           # Env vars, DB, Cloudinary, JWT constants (no hardcoded secrets)
 ├── models.py           # All Pydantic request/response models
 ├── routes/
-│   ├── auth.py         # /api/auth/login, /api/auth/me, /api/audit-logs
-│   ├── reels.py        # /api/reels/search/start|status|stop, /api/reels/upload|export
-│   └── apify.py        # /api/apify/status, /api/search-history
+│   ├── auth.py         # Auth routes + safe audit logging (no mutable defaults)
+│   ├── reels.py        # Search (3 builder helpers), upload, export (Cloudinary URL optimization)
+│   └── apify.py        # Status check (_check_token/_check_actor helpers), history
 ├── services/
-│   ├── apify_service.py      # Apify API, caching, result processing
+│   ├── apify_service.py      # SHA256 cache keys, 6 extraction helpers for process_apify_results
 │   └── cloudinary_service.py # Cloudinary upload logic
 └── tests/test_api.py
 
 /app/frontend/src/
 ├── App.js                          # Router (Login, Dashboard, History, AuditLog)
 ├── pages/
-│   ├── DashboardPage.jsx           # Orchestrator with date range picker
-│   ├── HistoryPage.jsx             # Search history with carousel
-│   ├── AuditLogPage.jsx            # Activity log table with filters
+│   ├── DashboardPage.jsx           # Orchestrator (useCallback/useMemo for hook deps)
+│   ├── HistoryPage.jsx             # Search history (useCallback for fetchHistory)
+│   ├── AuditLogPage.jsx            # Activity log (useCallback for fetchLogs)
 │   └── LoginPage.jsx
 ├── components/
-│   ├── HelpPanel.jsx               # Help/workflow guide
-│   ├── ReelCard.jsx                # Individual reel display
+│   ├── HelpPanel.jsx
+│   ├── ReelCard.jsx                # Stable keys for dynamic lists
 │   └── modals/
-│       ├── ApifyStatusModal.jsx    # API connection status
-│       ├── ExecutionStatusModal.jsx # Search result status
-│       └── UploadProgressModal.jsx # Cloudinary upload progress
+│       ├── ApifyStatusModal.jsx
+│       ├── ExecutionStatusModal.jsx
+│       └── UploadProgressModal.jsx
 ```
 
 ## What's Been Implemented
-- [x] JWT authentication with allowlist
+- [x] JWT authentication with allowlist (secrets in env vars)
 - [x] 3 search modes: Username, Profile URL (individual fields), Hashtag
 - [x] Apify integration (3 actors + dual tokens)
 - [x] Strict reel-only filtering for hashtag searches
 - [x] Cloudinary upload with progress tracking + optimized URLs (f_auto/q_auto/vc_auto)
-- [x] CSV export (with optimized Cloudinary URLs)
-- [x] Cost estimator, max results selector with custom input
-- [x] Stop search with partial results
+- [x] CSV export with optimized Cloudinary URLs
+- [x] Date Range Picker (shadcn Calendar, range mode, shared across tabs)
+- [x] Audit Log Viewer (/audit-log with table, filters, pagination)
+- [x] Previously Pulled Items with preview carousel, retry, and load
+- [x] Cost estimator, max results selector, stop search, partial results
 - [x] Search state persistence via localStorage
-- [x] Caching via Apify Key-Value store (24hr TTL)
-- [x] History page with carousel preview, compare mode
-- [x] API Status modal with troubleshooting guides
-- [x] Help panel with workflow guide
-- [x] CSV upload for bulk usernames
-- [x] Profile URL tab with individual input fields + performance guidance
-- [x] Previously Pulled Items section with preview carousel, retry, and load
-- [x] **Date Range Picker** — shadcn Calendar range mode, shared across all search tabs
-- [x] **Audit Log Viewer** — /audit-log page with table, color-coded badges, search, filter, pagination
-- [x] Backend refactored into modular files
-- [x] Frontend refactored into extracted components
+- [x] Caching via Apify Key-Value store (SHA256 keys, 24hr TTL)
+- [x] History page, API Status modal, Help panel, CSV bulk upload
+- [x] **Code quality review applied**: no hardcoded secrets, no mutable defaults, SHA256 over MD5, low-complexity helpers, useCallback/useMemo for React hooks, stable keys for dynamic lists
 
 ## Prioritized Backlog
 ### P1

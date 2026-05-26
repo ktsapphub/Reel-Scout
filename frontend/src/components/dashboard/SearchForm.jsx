@@ -4,25 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Search, User, Hash, Link as LinkIcon, Loader2, Play, Plus, X, Square,
+  Search, User, Hash, Link as LinkIcon, Play, Plus, X, Square,
   HelpCircle, FileUp, FileDown, DollarSign, CalendarIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 import { SEARCH_HELP } from "@/components/HelpPanel";
+import { SearchProgress } from "./SearchProgress";
 
 const MAX_RESULTS_OPTIONS = [5, 10, 25, 50, 100, 250];
 const MAX_USERNAME_FIELDS = 10;
-
-function formatTime(seconds) {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
-}
 
 export function SearchForm({
   // form state
@@ -255,20 +250,13 @@ export function SearchForm({
         </div>
 
         {searching && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg animate-fade-in">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 text-blue-600 animate-spin" /><span className="text-sm font-medium text-blue-800">Searching Instagram...</span></div>
-              <div className="flex items-center gap-3 text-sm text-blue-700">
-                <span className="font-medium">{progress}%</span>
-                {estimatedTime > 0 && <span className="text-blue-600">~{formatTime(estimatedTime)} remaining</span>}
-              </div>
-            </div>
-            <Progress value={progress} className="h-2" />
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-blue-600">{itemsProcessed > 0 ? `Sifting through ${itemsProcessed} items collected...` : `Fetching up to ${maxResults} reels...`}</p>
-              <p className="text-xs text-blue-500">Click Stop to get partial results anytime</p>
-            </div>
-          </div>
+          <SearchProgress
+            searching={searching}
+            progress={progress}
+            estimatedTime={estimatedTime}
+            itemsProcessed={itemsProcessed}
+            maxResults={maxResults}
+          />
         )}
       </CardContent>
     </Card>

@@ -17,6 +17,7 @@ import { UploadProgressModal } from "@/components/modals/UploadProgressModal";
 import { ExecutionStatusModal } from "@/components/modals/ExecutionStatusModal";
 import { ApifyStatusModal } from "@/components/modals/ApifyStatusModal";
 import { HelpPanel } from "@/components/HelpPanel";
+import { HealthDot } from "@/components/HealthDot";
 import { SearchForm } from "@/components/dashboard/SearchForm";
 import { ResultsGrid } from "@/components/dashboard/ResultsGrid";
 import { useSearchPolling } from "@/hooks/useSearchPolling";
@@ -322,6 +323,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <HealthDot token={token} backendUrl={backendUrl} />
               <Button variant="outline" size="sm" onClick={() => navigate("/settings")} className="border-slate-200 text-slate-600 hover:text-slate-900" data-testid="settings-btn">
                 <Settings className="w-4 h-4 mr-2" />Settings
               </Button>

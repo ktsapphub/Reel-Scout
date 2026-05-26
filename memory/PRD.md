@@ -69,6 +69,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.5.0 — 2026-05-26) P2 + P3 Polish**:
+  - **Better search progress** (`/components/dashboard/SearchProgress.jsx`) — 4-stage timeline (Starting → Scraping → Filtering → Complete), live "discovered" count, ETA, stage subtitle (e.g. "Sifting through 47 items"), animated active-stage ring
+  - **Header health dot** (`/components/HealthDot.jsx`) — polls `/api/settings/health-status` every 60s on Dashboard header. Colored dot + per-service indicators (`apify:✓ · cloudinary:✓ · mongodb:✓`). Green/amber/red based on connection state; click navigates to Settings
+  - **Always-visible credentials** + **Eye reveal in view mode** (`/api/settings/credentials/{key}/reveal` audit-logged, 15s auto-hide)
+  - **Prominent "Re-verify" button** on each connection card
 - [x] **(v2.4.0 — 2026-05-26) Sync (fast path) for small searches**:
   - For single-target searches with `max_results ≤ 25` (single username, single URL, or any hashtag), the backend now uses Apify's `run-sync-get-dataset-items` endpoint — single round-trip, no actor cold-start gap, no polling overhead
   - Returns `status="CACHED"` with `run_id=sync_...` — uses existing frontend cache rendering path (zero UI changes)

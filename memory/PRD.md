@@ -69,6 +69,13 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.4.0 — 2026-05-26) Sync (fast path) for small searches**:
+  - For single-target searches with `max_results ≤ 25` (single username, single URL, or any hashtag), the backend now uses Apify's `run-sync-get-dataset-items` endpoint — single round-trip, no actor cold-start gap, no polling overhead
+  - Returns `status="CACHED"` with `run_id=sync_...` — uses existing frontend cache rendering path (zero UI changes)
+  - On timeout/error/non-list payload, transparently falls back to the existing async path
+  - Results are written to the regular Apify KV cache so subsequent identical searches are instant
+  - Audited as `search_sync` action
+  - Configurable via `SYNC_PATH_MAX_RESULTS=25` and `SYNC_PATH_TIMEOUT_SEC=90` in `routes/reels.py`
 - [x] **(v2.3.0 — 2026-05-26) P0 Refactor — modularization**:
   - Extracted `useSearchPolling` hook + `<SearchForm>` + `<ResultsGrid>` from `DashboardPage.jsx` (805 → 468 lines)
   - Extracted `<ValidityPill>`, `<CredentialRow>`, `<ConnectionCard>`, `<MongoCredentialView>` from `SettingsPage.jsx` (704 → 407 lines)

@@ -103,6 +103,32 @@ async def save_to_cache(cache_key: str, results: List):
             logger.error(f"Error saving to cache: {e}")
 
 
+async def run_actor_sync(
+    actor_id: str, apify_input: Dict[str, Any], api_token: str, timeout: float = 90.0,
+) -> Optional[List[Dict]]:
+    """Call Apify's run-sync-get-dataset-items endpoint (single round-trip, no polling).
+    Returns the raw dataset items list or None on timeout/error (caller falls back to async)."""
+    url = f"https://api.apify.com/v2/acts/{actor_id}/run-sync-get-dataset-items?token={api_token}"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                url, json=apify_input, headers={"Content-Type": "application/json"},
+            )
+            # Apify returns 200 (run finished within sync window) or 201 (Created, body still contains items)
+            if response.status_code in (200, 201):
+                payload = response.json()
+                if isinstance(payload, list):
+                    logger.info(f"Sync path success: {len(payload)} items (HTTP {response.status_code})")
+                    return payload
+                logger.info(f"Sync path returned non-list payload ({type(payload).__name__}) — falling back to async")
+                return None
+            logger.info(f"Sync path HTTP {response.status_code} — falling back to async")
+            return None
+    except (httpx.TimeoutException, httpx.HTTPError) as e:
+        logger.info(f"Sync path failed ({type(e).__name__}: {e}) — falling back to async")
+        return None
+
+
 # --- Item extraction helpers ---
 
 def extract_reel_id(url: str) -> str:

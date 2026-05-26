@@ -19,7 +19,7 @@ from models import (
 from routes.auth import get_current_user, log_audit
 from services.apify_service import (
     active_runs, generate_cache_key, get_cached_results,
-    save_to_cache, process_apify_results
+    save_to_cache, process_apify_results, run_actor_sync,
 )
 from services.cloudinary_service import upload_reel_to_cloudinary
 
@@ -244,6 +244,57 @@ def _token_for_search(search_type: str) -> Optional[str]:
     return get_runtime_value("APIFY_USERNAME_TOKEN")
 
 
+# --- Sync (fast path) -----------------------------------------------------
+# For small, single-target searches, prefer Apify's run-sync-get-dataset-items
+# endpoint — single round-trip, no polling overhead, no actor cold-start gap
+# between our run-start and our first status poll.
+
+SYNC_PATH_MAX_RESULTS = 25
+SYNC_PATH_TIMEOUT_SEC = 90.0
+
+
+def _should_use_sync_path(request: SearchRequest) -> bool:
+    """Sync path is best for small, single-target searches."""
+    if request.max_results > SYNC_PATH_MAX_RESULTS:
+        return False
+    if request.search_type == "username":
+        return bool(request.usernames) and len(request.usernames) == 1
+    if request.search_type == "url":
+        return bool(request.urls) and len(request.urls) == 1
+    if request.search_type == "hashtag":
+        return bool(request.hashtag)
+    return False
+
+
+async def _try_sync_run(
+    request: SearchRequest, actor_id: str, apify_input: dict,
+    api_token: str, cache_key: Optional[str], user_email: str,
+) -> Optional[StartSearchResponse]:
+    """Attempt the sync path. Returns a CACHED-style response on success, None to fall back."""
+    raw_items = await run_actor_sync(actor_id, apify_input, api_token, timeout=SYNC_PATH_TIMEOUT_SEC)
+    if raw_items is None:
+        return None
+    results = await process_apify_results(raw_items, user_email, request.search_type)
+    if cache_key and results:
+        await save_to_cache(cache_key, results)
+    sync_run_id = f"sync_{cache_key or 'run'}_{datetime.now(timezone.utc).timestamp()}"
+    active_runs[sync_run_id] = {
+        "user_email": user_email, "started_at": datetime.now(timezone.utc),
+        "max_results": request.max_results, "search_type": request.search_type,
+        "actor_id": actor_id,
+        "cached_results": [r.model_dump() for r in results],
+        "is_cached": True,
+    }
+    await log_audit("search_sync", user_email, {
+        "search_type": request.search_type, "results_count": len(results),
+        "actor_id": actor_id,
+    })
+    return StartSearchResponse(
+        run_id=sync_run_id, status="CACHED",
+        message=f"Fast path — retrieved {len(results)} reels in one call",
+    )
+
+
 def _build_cached_status_response(run_id: str, run_info: dict) -> SearchStatusResponse:
     """Convert cached run_info into a final SearchStatusResponse and clean up."""
     cached = run_info.get("cached_results", [])
@@ -304,6 +355,13 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     if not api_token:
         token_type = "APIFY_TOKEN" if request.search_type == "hashtag" else "APIFY_USERNAME_TOKEN"
         raise HTTPException(status_code=500, detail=f"{token_type} not configured")
+
+    # Fast path: try sync endpoint for small single-target searches.
+    if _should_use_sync_path(request):
+        sync_response = await _try_sync_run(request, actor_id, apify_input, api_token, cache_key, user_email)
+        if sync_response:
+            return sync_response
+        # else: fell back to async path below
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:

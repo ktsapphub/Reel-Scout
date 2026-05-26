@@ -18,6 +18,7 @@ import { ExecutionStatusModal } from "@/components/modals/ExecutionStatusModal";
 import { ApifyStatusModal } from "@/components/modals/ApifyStatusModal";
 import { HelpPanel } from "@/components/HelpPanel";
 import { HealthDot } from "@/components/HealthDot";
+import { ConnectionGuardModal } from "@/components/modals/ConnectionGuardModal";
 import { SearchForm } from "@/components/dashboard/SearchForm";
 import { ResultsGrid } from "@/components/dashboard/ResultsGrid";
 import { useSearchPolling } from "@/hooks/useSearchPolling";
@@ -61,6 +62,12 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [apifyStatus, setApifyStatus] = useState(null);
   const [checkingApify, setCheckingApify] = useState(false);
   const [showApifyModal, setShowApifyModal] = useState(false);
+
+  // Connection guard
+  const [showGuardModal, setShowGuardModal] = useState(false);
+  const [guardServices, setGuardServices] = useState([]);
+  const [guardRechecking, setGuardRechecking] = useState(false);
+  const [bypassGuardOnce, setBypassGuardOnce] = useState(false);
 
   // Previously pulled
   const [previousSearches, setPreviousSearches] = useState([]);
@@ -172,6 +179,61 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     }
   };
 
+  /**
+   * Run a pre-flight connection check. Returns true if it's safe to proceed,
+   * or false if the guard modal has been raised (caller should abort).
+   */
+  const passesGuardCheck = useCallback(async () => {
+    if (bypassGuardOnce) {
+      setBypassGuardOnce(false);
+      return true;
+    }
+    try {
+      const response = await api.get("/settings/health-status");
+      const apify = response.data?.apify;
+      const cloudinary = response.data?.cloudinary;
+      // Apify is critical for any search; Cloudinary only matters at upload time
+      const problems = [];
+      if (apify && apify.connected === false) {
+        problems.push({ name: "apify", state: "failed" });
+      } else if (apify && apify.is_stale && apify.checked_at) {
+        problems.push({ name: "apify", state: "stale" });
+      } else if (!apify || !apify.checked_at) {
+        problems.push({ name: "apify", state: "unknown" });
+      }
+      // Show Cloudinary as warning only if explicitly failed (so user knows uploads will fail later)
+      if (cloudinary && cloudinary.connected === false) {
+        problems.push({ name: "cloudinary", state: "failed" });
+      }
+      if (problems.some(p => p.state === "failed")) {
+        setGuardServices(problems);
+        setShowGuardModal(true);
+        return false;
+      }
+      return true;
+    } catch {
+      // If health check itself errors, don't block — let the search attempt
+      return true;
+    }
+  }, [api, bypassGuardOnce]);
+
+  const handleGuardRecheck = useCallback(async () => {
+    setGuardRechecking(true);
+    try {
+      const response = await api.get("/apify/status");
+      if (response.data?.connected) {
+        toast.success("Apify connection restored");
+        setShowGuardModal(false);
+      } else {
+        toast.error("Apify still not connected");
+      }
+    } catch {
+      toast.error("Re-check failed");
+    } finally {
+      setGuardRechecking(false);
+    }
+  }, [api]);
+
   const handleSearch = async () => {
     const payload = { search_type: searchType, max_results: maxResults };
 
@@ -192,6 +254,10 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       if (!hashtag) { toast.error("Please enter a hashtag"); return; }
       payload.hashtag = hashtag;
     }
+
+    // Pre-flight connection guard — blocks if Apify is in a known failed state
+    const safe = await passesGuardCheck();
+    if (!safe) return;
 
     setMessage(""); setResults([]); setSelectedIds(new Set()); setUploadedReelIds(new Set());
     setCurrentPage(1);
@@ -310,6 +376,14 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
         <ExecutionStatusModal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} executionStatus={executionStatus} />
         <UploadProgressModal isOpen={showUploadModal} onClose={() => !uploading && setShowUploadModal(false)} uploadStatus={uploadStatus} />
         <ApifyStatusModal isOpen={showApifyModal} onClose={() => setShowApifyModal(false)} status={apifyStatus} onRecheck={checkApifyConnection} isChecking={checkingApify} />
+        <ConnectionGuardModal
+          open={showGuardModal}
+          onClose={() => setShowGuardModal(false)}
+          onProceedAnyway={() => { setBypassGuardOnce(true); handleSearch(); }}
+          services={guardServices}
+          isRechecking={guardRechecking}
+          onRecheck={handleGuardRecheck}
+        />
 
         <header className="sticky top-0 z-50 glass border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">

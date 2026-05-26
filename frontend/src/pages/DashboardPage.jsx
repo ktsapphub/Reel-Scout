@@ -402,11 +402,9 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Tooltip><TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={checkApifyConnection} disabled={checkingApify} className="border-slate-200 text-slate-600 hover:text-slate-900" data-testid="check-apify-btn">
-                  {checkingApify ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Settings className="w-4 h-4 mr-2" />}API Status
-                </Button>
-              </TooltipTrigger><TooltipContent><p>Check Apify API connection and actor status</p></TooltipContent></Tooltip>
+              <Button variant="outline" size="sm" onClick={() => navigate("/settings")} className="border-slate-200 text-slate-600 hover:text-slate-900" data-testid="settings-btn">
+                <Settings className="w-4 h-4 mr-2" />Settings
+              </Button>
               <Button variant="outline" size="sm" onClick={() => navigate("/history")} className="border-slate-200 text-slate-600 hover:text-slate-900" data-testid="history-btn">
                 <History className="w-4 h-4 mr-2" />History
               </Button>

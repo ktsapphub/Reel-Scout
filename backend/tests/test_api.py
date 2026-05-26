@@ -270,5 +270,143 @@ class TestSearchRequestDateRange:
         print(f"SUCCESS: Search endpoint accepts date range parameters (status: {response.status_code})")
 
 
+class TestSettingsBuildInfo:
+    """Tests for /api/settings/build-info endpoint - NEW Settings page feature"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Get auth token before tests"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "mydatejar@gmail.com",
+            "password": "#Test1234"
+        })
+        if response.status_code == 200:
+            self.token = response.json()["token"]
+            self.headers = {"Authorization": f"Bearer {self.token}"}
+        else:
+            pytest.skip("Could not authenticate")
+    
+    def test_get_build_info_authenticated(self):
+        """Test fetching build info with valid auth"""
+        response = requests.get(f"{BASE_URL}/api/settings/build-info", headers=self.headers)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        
+        data = response.json()
+        # Check required fields
+        assert "app_name" in data, "Should have app_name"
+        assert "version" in data, "Should have version"
+        assert "build_date" in data, "Should have build_date"
+        assert "framework" in data, "Should have framework"
+        assert "features" in data, "Should have features list"
+        assert "integrations" in data, "Should have integrations"
+        
+        # Verify specific values
+        assert data["app_name"] == "IG Reel Finder", f"Expected 'IG Reel Finder', got {data['app_name']}"
+        assert data["version"] == "2.1.0", f"Expected version '2.1.0', got {data['version']}"
+        assert data["framework"] == "FastAPI", f"Expected 'FastAPI', got {data['framework']}"
+        assert isinstance(data["features"], list), "Features should be a list"
+        assert len(data["features"]) > 0, "Features list should not be empty"
+        
+        # Check integrations structure
+        assert "apify" in data["integrations"], "Should have apify integration info"
+        assert "cloudinary" in data["integrations"], "Should have cloudinary integration info"
+        assert "actors" in data["integrations"]["apify"], "Apify should have actors info"
+        
+        print(f"SUCCESS: Build info returns version={data['version']}, {len(data['features'])} features")
+    
+    def test_get_build_info_unauthenticated(self):
+        """Test build info without auth token"""
+        response = requests.get(f"{BASE_URL}/api/settings/build-info")
+        assert response.status_code in [401, 403], f"Expected 401/403, got {response.status_code}"
+        print("SUCCESS: Build info requires authentication")
+
+
+class TestSettingsCheckCloudinary:
+    """Tests for /api/settings/check-cloudinary endpoint"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Get auth token before tests"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "mydatejar@gmail.com",
+            "password": "#Test1234"
+        })
+        if response.status_code == 200:
+            self.token = response.json()["token"]
+            self.headers = {"Authorization": f"Bearer {self.token}"}
+        else:
+            pytest.skip("Could not authenticate")
+    
+    def test_check_cloudinary_authenticated(self):
+        """Test Cloudinary connection check with valid auth"""
+        response = requests.get(f"{BASE_URL}/api/settings/check-cloudinary", headers=self.headers)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        
+        data = response.json()
+        # Check required fields
+        assert "connected" in data, "Should have connected field"
+        assert "checked_at" in data, "Should have checked_at timestamp"
+        
+        # If connected, should have cloud_name and api_key_hint
+        if data["connected"]:
+            assert "cloud_name" in data, "Connected response should have cloud_name"
+            assert "api_key_hint" in data, "Connected response should have api_key_hint"
+            print(f"SUCCESS: Cloudinary connected, cloud_name={data['cloud_name']}")
+        else:
+            # If not connected, should have error
+            assert "error" in data, "Disconnected response should have error"
+            print(f"SUCCESS: Cloudinary check returned connected=False with error")
+    
+    def test_check_cloudinary_unauthenticated(self):
+        """Test Cloudinary check without auth token"""
+        response = requests.get(f"{BASE_URL}/api/settings/check-cloudinary")
+        assert response.status_code in [401, 403], f"Expected 401/403, got {response.status_code}"
+        print("SUCCESS: Cloudinary check requires authentication")
+
+
+class TestSettingsCheckMongoDB:
+    """Tests for /api/settings/check-mongodb endpoint"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Get auth token before tests"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "mydatejar@gmail.com",
+            "password": "#Test1234"
+        })
+        if response.status_code == 200:
+            self.token = response.json()["token"]
+            self.headers = {"Authorization": f"Bearer {self.token}"}
+        else:
+            pytest.skip("Could not authenticate")
+    
+    def test_check_mongodb_authenticated(self):
+        """Test MongoDB connection check with valid auth"""
+        response = requests.get(f"{BASE_URL}/api/settings/check-mongodb", headers=self.headers)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        
+        data = response.json()
+        # Check required fields
+        assert "connected" in data, "Should have connected field"
+        assert "checked_at" in data, "Should have checked_at timestamp"
+        
+        # If connected, should have database and collections
+        if data["connected"]:
+            assert "database" in data, "Connected response should have database name"
+            assert "collections" in data, "Connected response should have collections"
+            assert isinstance(data["collections"], dict), "Collections should be a dict"
+            print(f"SUCCESS: MongoDB connected, database={data['database']}, collections={list(data['collections'].keys())}")
+        else:
+            # If not connected, should have error
+            assert "error" in data, "Disconnected response should have error"
+            print(f"SUCCESS: MongoDB check returned connected=False with error")
+    
+    def test_check_mongodb_unauthenticated(self):
+        """Test MongoDB check without auth token"""
+        response = requests.get(f"{BASE_URL}/api/settings/check-mongodb")
+        assert response.status_code in [401, 403], f"Expected 401/403, got {response.status_code}"
+        print("SUCCESS: MongoDB check requires authentication")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

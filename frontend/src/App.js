@@ -6,6 +6,7 @@ import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HistoryPage from "@/pages/HistoryPage";
 import AuditLogPage from "@/pages/AuditLogPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -76,6 +77,20 @@ function App() {
             element={
               token ? (
                 <AuditLogPage
+                  token={token}
+                  userEmail={userEmail}
+                  backendUrl={BACKEND_URL}
+                />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              token ? (
+                <SettingsPage
                   token={token}
                   userEmail={userEmail}
                   backendUrl={BACKEND_URL}

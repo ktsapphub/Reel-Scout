@@ -8,7 +8,7 @@ import io
 from fastapi.responses import StreamingResponse
 
 from config import (
-    logger, APIFY_TOKEN, APIFY_USERNAME_TOKEN,
+    logger, get_runtime_value,
     APIFY_ACTOR_ID, APIFY_HASHTAG_ACTOR_ID
 )
 from models import (
@@ -184,7 +184,7 @@ def optimize_cloudinary_url(url: str) -> str:
 
 @router.post("/reels/search/start", response_model=StartSearchResponse)
 async def start_search(request: SearchRequest, user_email: str = Depends(get_current_user)):
-    if not APIFY_TOKEN:
+    if not get_runtime_value("APIFY_TOKEN"):
         raise HTTPException(status_code=500, detail="Apify token not configured")
 
     if request.search_type == "username":
@@ -228,7 +228,7 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
                 message=f"Found {len(cached_results)} cached results from previous search",
             )
 
-    api_token = APIFY_TOKEN if request.search_type == "hashtag" else APIFY_USERNAME_TOKEN
+    api_token = get_runtime_value("APIFY_TOKEN") if request.search_type == "hashtag" else get_runtime_value("APIFY_USERNAME_TOKEN")
     if not api_token:
         token_type = "APIFY_TOKEN" if request.search_type == "hashtag" else "APIFY_USERNAME_TOKEN"
         raise HTTPException(status_code=500, detail=f"{token_type} not configured")
@@ -266,7 +266,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
     api_token = run_info.get("api_token")
     if not api_token:
         search_type = run_info.get("search_type", "username")
-        api_token = APIFY_TOKEN if search_type == "hashtag" else APIFY_USERNAME_TOKEN
+        api_token = get_runtime_value("APIFY_TOKEN") if search_type == "hashtag" else get_runtime_value("APIFY_USERNAME_TOKEN")
     if not api_token:
         raise HTTPException(status_code=500, detail="Apify token not configured")
 
@@ -311,7 +311,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
             items_processed = 0
             if dataset_id and run_status == "RUNNING":
                 try:
-                    ds = await client.get(f"https://api.apify.com/v2/datasets/{dataset_id}?token={APIFY_TOKEN}")
+                    ds = await client.get(f"https://api.apify.com/v2/datasets/{dataset_id}?token={get_runtime_value('APIFY_TOKEN')}")
                     if ds.status_code == 200:
                         items_processed = ds.json().get("data", {}).get("itemCount", 0)
                 except Exception:
@@ -356,7 +356,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
     search_type = run_info.get("search_type", "unknown")
     api_token = run_info.get("api_token")
     if not api_token:
-        api_token = APIFY_TOKEN if search_type == "hashtag" else APIFY_USERNAME_TOKEN
+        api_token = get_runtime_value("APIFY_TOKEN") if search_type == "hashtag" else get_runtime_value("APIFY_USERNAME_TOKEN")
     if not api_token:
         raise HTTPException(status_code=500, detail="Apify token not configured")
 

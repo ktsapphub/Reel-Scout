@@ -4,7 +4,7 @@ from typing import Optional
 import httpx
 
 from config import (
-    logger, APIFY_TOKEN, APIFY_USERNAME_TOKEN,
+    logger, get_runtime_value,
     APIFY_ACTOR_ID, APIFY_REEL_SCRAPER_ID, APIFY_HASHTAG_ACTOR_ID,
     APIFY_CACHE_STORE_NAME
 )
@@ -53,7 +53,9 @@ async def _check_actor(client: httpx.AsyncClient, token: str, actor_id: str, lab
 
 @router.get("/apify/status", response_model=ApifyConnectionStatus)
 async def check_apify_connection(user_email: str = Depends(get_current_user)):
-    if not APIFY_TOKEN and not APIFY_USERNAME_TOKEN:
+    apify_token = get_runtime_value("APIFY_TOKEN")
+    apify_username_token = get_runtime_value("APIFY_USERNAME_TOKEN")
+    if not apify_token and not apify_username_token:
         return ApifyConnectionStatus(
             connected=False, hashtag_token_valid=False, username_token_valid=False,
             username_actor_accessible=False, reel_scraper_accessible=False,
@@ -66,28 +68,28 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         # Token checks
-        hashtag_valid, ht_info, ht_err = await _check_token(client, APIFY_TOKEN, "Hashtag token")
+        hashtag_valid, ht_info, ht_err = await _check_token(client, apify_token, "Hashtag token")
         if ht_err:
             errors.append(ht_err)
         if ht_info:
-            account_info = {**ht_info, "hashtag_token": "***" + APIFY_TOKEN[-8:]}
+            account_info = {**ht_info, "hashtag_token": "***" + apify_token[-8:]}
 
-        username_valid, ut_info, ut_err = await _check_token(client, APIFY_USERNAME_TOKEN, "Username token")
+        username_valid, ut_info, ut_err = await _check_token(client, apify_username_token, "Username token")
         if ut_err:
             errors.append(ut_err)
-        if account_info and APIFY_USERNAME_TOKEN:
-            account_info["username_token"] = "***" + APIFY_USERNAME_TOKEN[-8:]
+        if account_info and apify_username_token:
+            account_info["username_token"] = "***" + apify_username_token[-8:]
 
         # Actor checks
-        username_actor_ok, ua_err = await _check_actor(client, APIFY_USERNAME_TOKEN, APIFY_ACTOR_ID, "Username actor")
+        username_actor_ok, ua_err = await _check_actor(client, apify_username_token, APIFY_ACTOR_ID, "Username actor")
         if ua_err:
             errors.append(ua_err)
 
-        reel_scraper_ok, rs_err = await _check_actor(client, APIFY_USERNAME_TOKEN, APIFY_REEL_SCRAPER_ID, "Reel Scraper")
+        reel_scraper_ok, rs_err = await _check_actor(client, apify_username_token, APIFY_REEL_SCRAPER_ID, "Reel Scraper")
         if rs_err:
             errors.append(rs_err)
 
-        hashtag_actor_ok, ha_err = await _check_actor(client, APIFY_TOKEN, APIFY_HASHTAG_ACTOR_ID, "Hashtag actor")
+        hashtag_actor_ok, ha_err = await _check_actor(client, apify_token, APIFY_HASHTAG_ACTOR_ID, "Hashtag actor")
         if ha_err:
             errors.append(ha_err)
 
@@ -102,11 +104,21 @@ async def check_apify_connection(user_email: str = Depends(get_current_user)):
         "connected": connected, "hashtag_token_valid": hashtag_valid,
         "username_token_valid": username_valid, "errors": errors,
     })
+
+    # Record health (for validity TTL on Settings page)
+    from services.health_service import record_health_check
+    health = await record_health_check("apify", connected, {
+        "hashtag_token_valid": hashtag_valid,
+        "username_token_valid": username_valid,
+    })
+
     return ApifyConnectionStatus(
         connected=connected, hashtag_token_valid=hashtag_valid,
         username_token_valid=username_valid, username_actor_accessible=username_actor_ok,
         reel_scraper_accessible=reel_scraper_ok, hashtag_actor_accessible=hashtag_actor_ok,
         account_info=account_info, errors=errors, message=message,
+        checked_at=health.get("checked_at"), valid_until=health.get("valid_until"),
+        validity_minutes=health.get("validity_minutes"),
     )
 
 
@@ -120,7 +132,7 @@ async def get_search_history(user_email: str = Depends(get_current_user)):
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"https://api.apify.com/v2/key-value-stores/{store_id}/keys?token={APIFY_TOKEN}"
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/keys?token={get_runtime_value('APIFY_TOKEN')}"
             )
             if response.status_code == 200:
                 keys = response.json().get("data", {}).get("items", [])
@@ -129,7 +141,7 @@ async def get_search_history(user_email: str = Depends(get_current_user)):
                     search_type = "username" if key.startswith("username_") else "hashtag" if key.startswith("hashtag_") else "unknown"
                     try:
                         record_response = await client.get(
-                            f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{key}?token={APIFY_TOKEN}"
+                            f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{key}?token={get_runtime_value('APIFY_TOKEN')}"
                         )
                         if record_response.status_code == 200:
                             record_data = record_response.json()
@@ -173,7 +185,7 @@ async def get_cached_search(cache_key: str, user_email: str = Depends(get_curren
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={APIFY_TOKEN}"
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={get_runtime_value('APIFY_TOKEN')}"
             )
             if response.status_code == 200:
                 data = response.json()

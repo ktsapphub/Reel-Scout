@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import httpx
 
 from config import (
-    logger, db, APIFY_TOKEN, APIFY_USERNAME_TOKEN,
+    logger, db, get_runtime_value,
     APIFY_ACTOR_ID, APIFY_REEL_SCRAPER_ID, APIFY_HASHTAG_ACTOR_ID,
     APIFY_CACHE_STORE_NAME
 )
@@ -21,17 +21,20 @@ IMAGE_TYPES = frozenset(["image", "photo", "sidecar", "graphimage", "carousel", 
 # --- Cache helpers ---
 
 async def get_or_create_cache_store() -> Optional[str]:
+    apify_token = get_runtime_value("APIFY_TOKEN")
+    if not apify_token:
+        return None
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"https://api.apify.com/v2/key-value-stores?token={APIFY_TOKEN}&unnamed=false"
+                f"https://api.apify.com/v2/key-value-stores?token={apify_token}&unnamed=false"
             )
             stores = response.json().get("data", {}).get("items", [])
             for store in stores:
                 if store.get("name") == APIFY_CACHE_STORE_NAME:
                     return store.get("id")
             create_response = await client.post(
-                f"https://api.apify.com/v2/key-value-stores?token={APIFY_TOKEN}&name={APIFY_CACHE_STORE_NAME}"
+                f"https://api.apify.com/v2/key-value-stores?token={apify_token}&name={APIFY_CACHE_STORE_NAME}"
             )
             if create_response.status_code == 201:
                 return create_response.json().get("data", {}).get("id")
@@ -62,7 +65,7 @@ async def get_cached_results(cache_key: str) -> Optional[List[Dict]]:
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={APIFY_TOKEN}"
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={get_runtime_value('APIFY_TOKEN')}"
             )
             if response.status_code == 200:
                 data = response.json()
@@ -91,7 +94,7 @@ async def save_to_cache(cache_key: str, results: List):
                 "results": [r.model_dump() if hasattr(r, 'model_dump') else r for r in results]
             }
             await client.put(
-                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={APIFY_TOKEN}",
+                f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={get_runtime_value('APIFY_TOKEN')}",
                 json=cache_data,
                 headers={"Content-Type": "application/json"}
             )

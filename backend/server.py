@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-from config import mongo_client, logger
+from config import mongo_client, logger, apply_overrides
 
 app = FastAPI(title="IG Reel Finder API", version="2.0.0")
 
@@ -24,6 +24,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def load_credential_overrides():
+    """At startup, load any DB-stored credential overrides into the runtime config."""
+    try:
+        from services.credentials_service import load_all_overrides
+        overrides = await load_all_overrides()
+        if overrides:
+            apply_overrides(overrides)
+            logger.info(f"Loaded {len(overrides)} credential override(s) from DB")
+    except Exception as e:
+        logger.error(f"Failed to load credential overrides: {e}")
 
 
 @app.on_event("shutdown")

@@ -111,3 +111,11 @@ class ApifyConnectionStatus(BaseModel):
     account_info: Optional[dict] = None
     errors: List[str] = []
     message: str
+    checked_at: Optional[str] = None
+    valid_until: Optional[str] = None
+    validity_minutes: Optional[int] = None
+
+
+class UpdateCredentialRequest(BaseModel):
+    key: str
+    value: str

@@ -302,7 +302,7 @@ class TestSettingsBuildInfo:
         
         # Verify specific values
         assert data["app_name"] == "IG Reel Finder", f"Expected 'IG Reel Finder', got {data['app_name']}"
-        assert data["version"] == "2.1.0", f"Expected version '2.1.0', got {data['version']}"
+        assert data["version"] == "2.2.0", f"Expected version '2.2.0', got {data['version']}"
         assert data["framework"] == "FastAPI", f"Expected 'FastAPI', got {data['framework']}"
         assert isinstance(data["features"], list), "Features should be a list"
         assert len(data["features"]) > 0, "Features list should not be empty"

@@ -1,0 +1,82 @@
+{
+  "summary": "Tested new v2.2.0 Credential Management + Connection Health feature. 17/17 new backend tests pass, 22/22 prior regression tests pass (1 version assertion fixed). Frontend 11/11 flows verified: login, settings load, verify-all, ValidityPill countdown (decrements every second), credential expansion with masked values, edit/cancel, invalid-token rejection with visible sonner error toast 'Apify validation failed (HTTP 401)', MongoDB read-only view, regression on Dashboard/History/Audit Log. Two visual regressions found on Settings page that don't break the new feature but degrade UX.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ConnectionCard (Cloudinary)",
+        "issue": "After Verify All, Cloudinary card shows 'Cloud Name: N/A' and 'API Key: N/A'. The /api/settings/check-cloudinary endpoint correctly returns cloud_name='dlldchbe2' and api_key_hint='***1553' (verified via curl + pytest), but the UI no longer renders these fields. Regression vs iteration_9 which showed these values. Likely the SettingsPage state extraction was changed during refactor (perhaps reading from wrong key in the response or from a stale getRuntimeValue path).",
+        "selector": "[data-testid='connection-cloudinary']",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "ConnectionCard (Apify)",
+        "issue": "After a successful Verify All, the Apify card simultaneously shows: top-level 'Connected' badge + 'Valid for 58m XXs' green pill AND inner rows reading 'Hashtag Token: Invalid (red)', 'Username Token: Invalid (red)', plus 'Profile Scraper / Reel Scraper / Hashtag Scraper: Inactive (red dots)'. This is contradictory — Apify status API returns connected=true with valid tokens. Likely caused by token_valid / actor_status fields being read from a renamed response field after the refactor, OR these per-token sub-statuses are no longer being populated by /api/apify/status. Confuses operators about whether the connection actually works.",
+        "selector": "[data-testid='connection-apify']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/settings/credentials returns 5 editable credentials with masked values (••••••••XXXX) and source='env'",
+    "Sensitive vs non-sensitive masking correct (CLOUDINARY_CLOUD_NAME not masked)",
+    "Unauthenticated GET /api/settings/credentials -> 401/403",
+    "GET /api/settings/health-status returns 3 services with checked_at/valid_until/validity_minutes/is_stale/remaining_seconds",
+    "Validity windows: apify=60min, cloudinary=60min, mongodb=30min",
+    "GET /api/settings/check-cloudinary updates health record (cloudinary.remaining_seconds > 3500)",
+    "GET /api/settings/check-mongodb updates health record (mongodb.remaining_seconds > 1700)",
+    "GET /api/apify/status returns checked_at/valid_until/validity_minutes and updates health",
+    "PUT /api/settings/credentials with invalid Apify token -> 400 'Apify validation failed (HTTP 401)' and source stays 'env' (not persisted)",
+    "PUT with unknown key -> 400 'Unknown credential: ...'",
+    "PUT with empty value -> 400 'Value cannot be empty'",
+    "PUT with real Apify token -> 200, source='database', updated_by='mydatejar@gmail.com'; DELETE restores source='env'",
+    "Audit log contains credential_update_rejected and credential_reset entries",
+    "GET /api/settings/build-info returns version='2.2.0'",
+    "Frontend login + navigation to /settings",
+    "Verify All Connections marks all 3 cards Connected",
+    "ValidityPill renders 'Valid for Xm Ys' and decrements every second (verified delta over 2.5s)",
+    "Manage credentials toggle expands credential rows with masked value (••••••••4d5p) + 'env' badge + Edit button",
+    "Edit mode shows input, reveal toggle, save, cancel; Cancel closes edit mode",
+    "Invalid token save shows sonner error toast 'Apify validation failed (HTTP 401)' (in [data-sonner-toaster])",
+    "MongoDB read-only view toggle expands; mongo-url-display + reveal toggle present",
+    "Regression: Dashboard (Username/Hashtag tabs), History page, Audit Log page all load"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_credentials_feature.py",
+    "/app/backend/tests/test_api.py",
+    "/app/test_reports/pytest/iter10_credentials.xml",
+    "/app/test_reports/pytest/iter10_regression.xml"
+  ],
+  "action_items": [
+    "Frontend (Settings): Fix Cloudinary card to display cloud_name and api_key_hint from /api/settings/check-cloudinary response (currently shows 'N/A')",
+    "Frontend (Settings): Fix Apify card so per-token rows and per-actor status reflect the actual /api/apify/status payload (currently all show Invalid/Inactive while top-level says Connected) — likely a response-field-rename issue introduced when APIFY_TOKEN constant was replaced with get_runtime_value()"
+  ],
+  "critical_code_review_comments": [
+    "config.get_runtime_value() pattern is cleanly used everywhere (apify_service, reels, settings) — no leftover APIFY_TOKEN constant references found",
+    "Encryption: Fernet key derived via PBKDF2 from JWT_SECRET — acceptable for v2.2; consider a dedicated CREDENTIALS_ENCRYPTION_KEY env var for production rotation",
+    "credentials_service.mask_value() correctly handles short values and non-sensitive (cloud_name) keys",
+    "_test_credential() correctly restores prior cloudinary.config on validation failure (good)",
+    "SettingsPage.jsx is 736 lines — close to the 700-line guideline; consider splitting ValidityPill / CredentialRow / ConnectionCard into separate files",
+    "Missing: a UI confirmation modal before overwriting a sensitive credential might be valuable (currently a single click saves)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_credentials_feature.py (new)",
+    "/app/backend/tests/test_api.py (updated version assertion 2.1.0 -> 2.2.0)"
+  ],
+  "success_rate": {
+    "backend": "100% (39/39: 17 new + 22 regression)",
+    "frontend": "100% functional (all flows pass); 2 visual regressions in info display"
+  },
+  "test_credentials": {
+    "test_user": "mydatejar@gmail.com / #Test1234"
+  },
+  "seed_data_creation": "None — used live .env tokens. After valid-update test, DELETE /api/settings/credentials/APIFY_TOKEN was called to restore .env fallback. No persistent overrides remain.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "New credential management feature (v2.2.0) works end-to-end: encrypted DB overrides, live API validation before persistence, validity TTL countdown (60min apify/cloudinary, 30min mongodb), audit logging, masked display. Two minor UI regressions in info display on Apify + Cloudinary cards need fixing — the connections themselves work, only the inner field rendering is broken. After main agent fixes those, retest by navigating to /settings → click Verify All → confirm Cloudinary 'Cloud Name' shows 'dlldchbe2' (not N/A) and Apify per-token rows show 'Valid' (not Invalid)."
+}

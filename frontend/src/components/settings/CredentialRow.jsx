@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +16,39 @@ const timeAgo = (iso) => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
-export function CredentialRow({ cred, onSave, onReset }) {
+const REVEAL_AUTO_HIDE_MS = 15000;
+
+export function CredentialRow({ cred, onSave, onReset, onReveal }) {
   const [editing, setEditing] = useState(false);
-  const [revealed, setRevealed] = useState(false);
+  const [revealedInEdit, setRevealedInEdit] = useState(false);
   const [newValue, setNewValue] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [viewRevealed, setViewRevealed] = useState(null); // null = masked, string = plaintext
+  const [revealing, setRevealing] = useState(false);
+
+  // Auto-hide reveal after timeout
+  useEffect(() => {
+    if (viewRevealed == null) return undefined;
+    const t = setTimeout(() => setViewRevealed(null), REVEAL_AUTO_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [viewRevealed]);
+
+  const handleReveal = async () => {
+    if (viewRevealed != null) {
+      setViewRevealed(null);
+      return;
+    }
+    setRevealing(true);
+    try {
+      const value = await onReveal(cred.key);
+      setViewRevealed(value || "");
+    } catch {
+      toast.error("Failed to reveal credential");
+    } finally {
+      setRevealing(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!newValue.trim()) { toast.error("Value cannot be empty"); return; }
@@ -29,31 +57,38 @@ export function CredentialRow({ cred, onSave, onReset }) {
       await onSave(cred.key, newValue.trim());
       setEditing(false);
       setNewValue("");
-      setRevealed(false);
+      setRevealedInEdit(false);
+      setViewRevealed(null);
     } catch {
       /* parent handles toast */
     } finally { setSaving(false); }
   };
 
-  const cancelEdit = () => { setEditing(false); setNewValue(""); setRevealed(false); };
+  const cancelEdit = () => { setEditing(false); setNewValue(""); setRevealedInEdit(false); };
 
   return (
     <div
-      className="flex items-center justify-between gap-3 py-2 px-3 rounded-md bg-white border border-slate-100 hover:border-slate-200 transition-colors"
+      className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-md bg-white border border-slate-100 hover:border-slate-200 transition-colors"
       data-testid={`cred-row-${cred.key}`}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Key className="w-3 h-3 text-slate-400" />
           <span className="text-xs font-medium text-slate-700">{cred.label}</span>
           <Badge variant="outline" className="text-[10px] h-4 px-1 border-slate-200 text-slate-500">
             {cred.source === "database" ? "override" : cred.source}
           </Badge>
+          {viewRevealed != null && (
+            <Badge className="text-[10px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-300">
+              revealed · auto-hides in 15s
+            </Badge>
+          )}
         </div>
+
         {editing ? (
           <div className="flex items-center gap-2 mt-1.5">
             <Input
-              type={revealed ? "text" : "password"}
+              type={revealedInEdit ? "text" : "password"}
               autoFocus
               value={newValue}
               onChange={(e) => setNewValue(e.target.value)}
@@ -62,23 +97,30 @@ export function CredentialRow({ cred, onSave, onReset }) {
               data-testid={`cred-input-${cred.key}`}
             />
             <Button
-              variant="ghost" size="sm" onClick={() => setRevealed((v) => !v)}
+              variant="ghost" size="sm" onClick={() => setRevealedInEdit((v) => !v)}
               className="h-7 w-7 p-0" data-testid={`cred-toggle-reveal-${cred.key}`}
             >
-              {revealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              {revealedInEdit ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </Button>
           </div>
         ) : (
-          <p className="text-xs text-slate-500 font-mono mt-0.5" data-testid={`cred-masked-${cred.key}`}>
-            {cred.has_value ? cred.masked_value : <span className="italic text-slate-400">not set</span>}
+          <p
+            className="text-xs text-slate-600 font-mono mt-0.5 break-all select-all"
+            data-testid={`cred-masked-${cred.key}`}
+          >
+            {cred.has_value
+              ? (viewRevealed != null ? viewRevealed : cred.masked_value)
+              : <span className="italic text-slate-400">not set</span>}
           </p>
         )}
+
         {cred.updated_at && !editing && (
           <p className="text-[10px] text-slate-400 mt-0.5">
             Updated by {cred.updated_by} · {timeAgo(cred.updated_at)}
           </p>
         )}
       </div>
+
       <div className="flex items-center gap-1 shrink-0">
         {editing ? (
           <>
@@ -97,6 +139,19 @@ export function CredentialRow({ cred, onSave, onReset }) {
           </>
         ) : (
           <>
+            {cred.has_value && (
+              <Button
+                variant="ghost" size="sm" onClick={handleReveal}
+                disabled={revealing}
+                className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600"
+                data-testid={`cred-view-reveal-${cred.key}`}
+                title={viewRevealed != null ? "Hide" : "Reveal current value"}
+              >
+                {revealing
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : (viewRevealed != null ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />)}
+              </Button>
+            )}
             <Button
               variant="ghost" size="sm" onClick={() => setEditing(true)}
               className="h-7 px-2 text-xs" data-testid={`cred-edit-${cred.key}`}

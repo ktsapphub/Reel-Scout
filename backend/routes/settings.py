@@ -184,6 +184,17 @@ async def list_credentials(user_email: str = Depends(get_current_user)):
     return {"credentials": creds}
 
 
+@router.get("/settings/credentials/{key}/reveal")
+async def reveal_credential(key: str, user_email: str = Depends(get_current_user)):
+    """Return the plaintext credential value (audit-logged every call)."""
+    if key not in EDITABLE_CREDENTIALS:
+        raise HTTPException(status_code=400, detail=f"Unknown credential: {key}")
+    from config import get_runtime_value as _grv
+    value = _grv(key)
+    await log_audit("credential_revealed", user_email, {"key": key})
+    return {"key": key, "value": value or ""}
+
+
 @router.put("/settings/credentials")
 async def update_credential(
     request: UpdateCredentialRequest,

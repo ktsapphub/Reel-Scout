@@ -145,6 +145,11 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
     }
   }, [api, fetchCredentials]);
 
+  const handleRevealCredential = useCallback(async (key) => {
+    const response = await api.get(`/settings/credentials/${key}/reveal`);
+    return response.data.value;
+  }, [api]);
+
   const apifyCreds = useMemo(
     () => credentials.filter((c) => c.service === "apify"),
     [credentials]
@@ -234,6 +239,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             credentials={apifyCreds}
             onSaveCredential={handleSaveCredential}
             onResetCredential={handleResetCredential}
+            onRevealCredential={handleRevealCredential}
           >
             {apifyStatus && (
               <div className="space-y-3">
@@ -301,6 +307,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             credentials={cloudinaryCreds}
             onSaveCredential={handleSaveCredential}
             onResetCredential={handleResetCredential}
+            onRevealCredential={handleRevealCredential}
           >
             {cloudinaryStatus && (
               <div className="space-y-1">

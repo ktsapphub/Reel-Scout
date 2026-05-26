@@ -3,7 +3,7 @@
 ## Original Problem Statement
 Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date Jar with Instagram Reels search via Apify, Cloudinary upload, and internal allowlist authentication.
 
-## Architecture (Refactored - Mar 2026)
+## Architecture
 - **Frontend**: React + Tailwind CSS + shadcn/ui — modular components
 - **Backend**: FastAPI (modular: config, models, routes, services)
 - **Database**: MongoDB (audit logs, saved reels index)
@@ -13,53 +13,51 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 ## Code Architecture
 ```
 /app/backend/
-├── server.py           # Slim app setup + router mounting
-├── config.py           # Env vars, DB, Cloudinary, JWT constants (no hardcoded secrets)
-├── models.py           # All Pydantic request/response models
+├── server.py                  # Slim app + router mounting
+├── config.py                  # Env vars, DB, Cloudinary, JWT
+├── models.py                  # Pydantic models
 ├── routes/
-│   ├── auth.py         # Auth routes + safe audit logging (no mutable defaults)
-│   ├── reels.py        # Search (3 builder helpers), upload, export (Cloudinary URL optimization)
-│   └── apify.py        # Status check (_check_token/_check_actor helpers), history
+│   ├── auth.py                # Auth + audit logging
+│   ├── reels.py               # Search, upload, export
+│   ├── apify.py               # Status check, history
+│   └── settings.py            # Build info, connection checks
 ├── services/
-│   ├── apify_service.py      # SHA256 cache keys, 6 extraction helpers for process_apify_results
-│   └── cloudinary_service.py # Cloudinary upload logic
-└── tests/test_api.py
+│   ├── apify_service.py       # Apify API, caching, result processing
+│   └── cloudinary_service.py  # Upload logic
 
 /app/frontend/src/
-├── App.js                          # Router (Login, Dashboard, History, AuditLog)
+├── App.js                     # Router (Login, Dashboard, History, AuditLog, Settings)
 ├── pages/
-│   ├── DashboardPage.jsx           # Orchestrator (useCallback/useMemo for hook deps)
-│   ├── HistoryPage.jsx             # Search history (useCallback for fetchHistory)
-│   ├── AuditLogPage.jsx            # Activity log (useCallback for fetchLogs)
+│   ├── DashboardPage.jsx      # Search orchestrator
+│   ├── HistoryPage.jsx        # Search history
+│   ├── AuditLogPage.jsx       # Activity log
+│   ├── SettingsPage.jsx       # Connections & build config
 │   └── LoginPage.jsx
 ├── components/
 │   ├── HelpPanel.jsx
-│   ├── ReelCard.jsx                # Stable keys for dynamic lists
-│   └── modals/
-│       ├── ApifyStatusModal.jsx
-│       ├── ExecutionStatusModal.jsx
-│       └── UploadProgressModal.jsx
+│   ├── ReelCard.jsx
+│   └── modals/ (ApifyStatus, ExecutionStatus, UploadProgress)
 ```
 
 ## What's Been Implemented
-- [x] JWT authentication with allowlist (secrets in env vars)
-- [x] 3 search modes: Username, Profile URL (individual fields), Hashtag
-- [x] Apify integration (3 actors + dual tokens)
-- [x] Strict reel-only filtering for hashtag searches
-- [x] Cloudinary upload with progress tracking + optimized URLs (f_auto/q_auto/vc_auto)
+- [x] JWT auth with allowlist (env vars, no hardcoded secrets)
+- [x] 3 search modes: Username, Profile URL, Hashtag
+- [x] Apify integration (3 actors + dual tokens, strict reel filtering)
+- [x] Cloudinary upload + optimized URLs (f_auto/q_auto/vc_auto)
 - [x] CSV export with optimized Cloudinary URLs
-- [x] Date Range Picker (shadcn Calendar, range mode, shared across tabs)
-- [x] Audit Log Viewer (/audit-log with table, filters, pagination)
-- [x] Previously Pulled Items with preview carousel, retry, and load
-- [x] Cost estimator, max results selector, stop search, partial results
-- [x] Search state persistence via localStorage
-- [x] Caching via Apify Key-Value store (SHA256 keys, 24hr TTL)
-- [x] History page, API Status modal, Help panel, CSV bulk upload
-- [x] **Code quality review applied**: no hardcoded secrets, no mutable defaults, SHA256 over MD5, low-complexity helpers, useCallback/useMemo for React hooks, stable keys for dynamic lists
+- [x] Date Range Picker (shared across all search tabs)
+- [x] Audit Log Viewer (/audit-log)
+- [x] Previously Pulled Items (preview, retry, load)
+- [x] **Settings Page** — /settings with:
+  - Service connection verification (Apify, Cloudinary, MongoDB)
+  - "Verified X ago" timestamps with stale indicator (>5min)
+  - Individual + bulk "Verify All" connection checks
+  - Build info (v2.1.0, tech stack, actor IDs, features)
+- [x] Code quality: SHA256, useCallback/useMemo, extracted helpers
 
 ## Prioritized Backlog
 ### P1
-- [ ] Saved Search Presets (save and re-run common search configurations)
+- [ ] Saved Search Presets
 
 ### P2
 - [ ] Enhanced search progress indicator

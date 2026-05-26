@@ -7,26 +7,42 @@ import DashboardPage from "@/pages/DashboardPage";
 import HistoryPage from "@/pages/HistoryPage";
 import AuditLogPage from "@/pages/AuditLogPage";
 import SettingsPage from "@/pages/SettingsPage";
+import { safeGet, safeSet, safeRemove } from "@/lib/safeStorage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 function App() {
-  const [token, setToken] = useState(localStorage.getItem("token"));
-  const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail"));
+  const [token, setToken] = useState(() => safeGet("token"));
+  const [userEmail, setUserEmail] = useState(() => safeGet("userEmail"));
+
+  // Cross-tab logout sync: if another tab clears the token, drop session here too.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "token" && !e.newValue) {
+        setToken(null);
+        setUserEmail(null);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const handleLogin = (newToken, email) => {
-    localStorage.setItem("token", newToken);
-    localStorage.setItem("userEmail", email);
+    safeSet("token", newToken);
+    safeSet("userEmail", email);
     setToken(newToken);
     setUserEmail(email);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userEmail");
+    safeRemove("token");
+    safeRemove("userEmail");
     setToken(null);
     setUserEmail(null);
   };
+
+  const requireAuth = (element) =>
+    token ? element : <Navigate to="/login" replace />;
 
   return (
     <>
@@ -35,71 +51,22 @@ function App() {
           <Route
             path="/login"
             element={
-              token ? (
-                <Navigate to="/" replace />
-              ) : (
-                <LoginPage onLogin={handleLogin} backendUrl={BACKEND_URL} />
-              )
+              token ? <Navigate to="/" replace />
+                : <LoginPage onLogin={handleLogin} backendUrl={BACKEND_URL} />
             }
           />
-          <Route
-            path="/"
-            element={
-              token ? (
-                <DashboardPage
-                  token={token}
-                  userEmail={userEmail}
-                  onLogout={handleLogout}
-                  backendUrl={BACKEND_URL}
-                />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/history"
-            element={
-              token ? (
-                <HistoryPage
-                  token={token}
-                  userEmail={userEmail}
-                  onLogout={handleLogout}
-                  backendUrl={BACKEND_URL}
-                />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/audit-log"
-            element={
-              token ? (
-                <AuditLogPage
-                  token={token}
-                  userEmail={userEmail}
-                  backendUrl={BACKEND_URL}
-                />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              token ? (
-                <SettingsPage
-                  token={token}
-                  userEmail={userEmail}
-                  backendUrl={BACKEND_URL}
-                />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+          <Route path="/" element={requireAuth(
+            <DashboardPage token={token} userEmail={userEmail} onLogout={handleLogout} backendUrl={BACKEND_URL} />
+          )} />
+          <Route path="/history" element={requireAuth(
+            <HistoryPage token={token} userEmail={userEmail} onLogout={handleLogout} backendUrl={BACKEND_URL} />
+          )} />
+          <Route path="/audit-log" element={requireAuth(
+            <AuditLogPage token={token} userEmail={userEmail} backendUrl={BACKEND_URL} />
+          )} />
+          <Route path="/settings" element={requireAuth(
+            <SettingsPage token={token} userEmail={userEmail} backendUrl={BACKEND_URL} />
+          )} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-right" richColors />

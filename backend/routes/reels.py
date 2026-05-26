@@ -180,6 +180,111 @@ def optimize_cloudinary_url(url: str) -> str:
     return url.replace("/upload/", "/upload/f_auto/q_auto/vc_auto/", 1)
 
 
+SEARCH_INPUT_BUILDERS = {
+    "username": _build_username_input,
+    "url": _build_url_input,
+    "hashtag": _build_hashtag_input,
+}
+
+
+def _resolve_search_input(request: SearchRequest):
+    """Dispatch to the right input builder. Returns (actor_id, apify_input, cache_key)
+    or raises HTTPException. Returns (None, None, None) for URL searches with no
+    valid usernames extracted (caller produces a structured error response)."""
+    builder = SEARCH_INPUT_BUILDERS.get(request.search_type)
+    if not builder:
+        raise HTTPException(status_code=400, detail="Invalid search type")
+    return builder(request)
+
+
+def _url_parse_error_response(urls: list) -> StartSearchResponse:
+    return StartSearchResponse(
+        run_id="", status="ERROR",
+        message="Could not extract any valid usernames from the provided URLs",
+        error=ExecutionError(
+            error_type="INVALID_INPUT", error_message="No valid Instagram profile URLs found",
+            error_code="URL_PARSE_ERROR",
+            possible_cause="The URLs provided are not valid Instagram profile URLs",
+            suggested_solution="Enter URLs in format: https://www.instagram.com/username",
+            technical_details=f"Provided URLs: {urls}",
+        ),
+    )
+
+
+async def _maybe_return_cached(
+    cache_key: str, request: SearchRequest, actor_id: str, user_email: str
+) -> Optional[StartSearchResponse]:
+    """If cache hit, register a synthetic cache run and return a CACHED response."""
+    if not cache_key:
+        return None
+    cached_results = await get_cached_results(cache_key)
+    if not cached_results:
+        return None
+    logger.info(f"Returning {len(cached_results)} cached results for {cache_key}")
+    cache_run_id = f"cache_{cache_key}_{datetime.now(timezone.utc).timestamp()}"
+    active_runs[cache_run_id] = {
+        "user_email": user_email, "started_at": datetime.now(timezone.utc),
+        "max_results": request.max_results, "search_type": request.search_type,
+        "actor_id": actor_id, "cached_results": cached_results, "is_cached": True,
+    }
+    await log_audit("search_cached", user_email, {
+        "cache_key": cache_key, "search_type": request.search_type,
+        "results_count": len(cached_results),
+    })
+    return StartSearchResponse(
+        run_id=cache_run_id, status="CACHED",
+        message=f"Found {len(cached_results)} cached results from previous search",
+    )
+
+
+def _token_for_search(search_type: str) -> Optional[str]:
+    """Return the Apify token to use for a given search type."""
+    if search_type == "hashtag":
+        return get_runtime_value("APIFY_TOKEN")
+    return get_runtime_value("APIFY_USERNAME_TOKEN")
+
+
+def _build_cached_status_response(run_id: str, run_info: dict) -> SearchStatusResponse:
+    """Convert cached run_info into a final SearchStatusResponse and clean up."""
+    cached = run_info.get("cached_results", [])
+    results = []
+    for item in cached:
+        try:
+            results.append(ReelResult(**item))
+        except Exception as e:
+            logger.error(f"Error converting cached result: {e}")
+    active_runs.pop(run_id, None)
+    return SearchStatusResponse(
+        status="SUCCEEDED", progress=100, estimated_seconds_remaining=0,
+        results=results, total=len(results),
+        message=f"Retrieved {len(results)} cached results (saved Apify credits!)",
+    )
+
+
+def _compute_progress(started_at: datetime, max_results: int) -> tuple:
+    """Returns (progress_pct, estimated_remaining_seconds)."""
+    elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+    estimated_total = max_results * 2.5
+    progress = min(95, int((elapsed / estimated_total) * 100)) if estimated_total > 0 else 0
+    estimated_remaining = max(0, int(estimated_total - elapsed))
+    return progress, estimated_remaining
+
+
+async def _fetch_items_processed(client: httpx.AsyncClient, dataset_id: Optional[str]) -> int:
+    """Best-effort fetch of itemCount from dataset (for RUNNING progress display)."""
+    if not dataset_id:
+        return 0
+    try:
+        ds = await client.get(
+            f"https://api.apify.com/v2/datasets/{dataset_id}?token={get_runtime_value('APIFY_TOKEN')}"
+        )
+        if ds.status_code == 200:
+            return ds.json().get("data", {}).get("itemCount", 0)
+    except Exception:
+        pass
+    return 0
+
+
 # --- Routes ---
 
 @router.post("/reels/search/start", response_model=StartSearchResponse)
@@ -187,48 +292,15 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     if not get_runtime_value("APIFY_TOKEN"):
         raise HTTPException(status_code=500, detail="Apify token not configured")
 
-    if request.search_type == "username":
-        actor_id, apify_input, cache_key = _build_username_input(request)
-    elif request.search_type == "url":
-        actor_id, apify_input, cache_key = _build_url_input(request)
-        if actor_id is None:
-            return StartSearchResponse(
-                run_id="", status="ERROR",
-                message="Could not extract any valid usernames from the provided URLs",
-                error=ExecutionError(
-                    error_type="INVALID_INPUT", error_message="No valid Instagram profile URLs found",
-                    error_code="URL_PARSE_ERROR",
-                    possible_cause="The URLs provided are not valid Instagram profile URLs",
-                    suggested_solution="Enter URLs in format: https://www.instagram.com/username",
-                    technical_details=f"Provided URLs: {request.urls}",
-                ),
-            )
-    elif request.search_type == "hashtag":
-        actor_id, apify_input, cache_key = _build_hashtag_input(request)
-    else:
-        raise HTTPException(status_code=400, detail="Invalid search type")
+    actor_id, apify_input, cache_key = _resolve_search_input(request)
+    if request.search_type == "url" and actor_id is None:
+        return _url_parse_error_response(request.urls)
 
-    # Check cache
-    if cache_key:
-        cached_results = await get_cached_results(cache_key)
-        if cached_results:
-            logger.info(f"Returning {len(cached_results)} cached results for {cache_key}")
-            cache_run_id = f"cache_{cache_key}_{datetime.now(timezone.utc).timestamp()}"
-            active_runs[cache_run_id] = {
-                "user_email": user_email, "started_at": datetime.now(timezone.utc),
-                "max_results": request.max_results, "search_type": request.search_type,
-                "actor_id": actor_id, "cached_results": cached_results, "is_cached": True,
-            }
-            await log_audit("search_cached", user_email, {
-                "cache_key": cache_key, "search_type": request.search_type,
-                "results_count": len(cached_results),
-            })
-            return StartSearchResponse(
-                run_id=cache_run_id, status="CACHED",
-                message=f"Found {len(cached_results)} cached results from previous search",
-            )
+    cached = await _maybe_return_cached(cache_key, request, actor_id, user_email)
+    if cached:
+        return cached
 
-    api_token = get_runtime_value("APIFY_TOKEN") if request.search_type == "hashtag" else get_runtime_value("APIFY_USERNAME_TOKEN")
+    api_token = _token_for_search(request.search_type)
     if not api_token:
         token_type = "APIFY_TOKEN" if request.search_type == "hashtag" else "APIFY_USERNAME_TOKEN"
         raise HTTPException(status_code=500, detail=f"{token_type} not configured")
@@ -263,33 +335,18 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
 @router.get("/reels/search/status/{run_id}", response_model=SearchStatusResponse)
 async def get_search_status(run_id: str, user_email: str = Depends(get_current_user)):
     run_info = active_runs.get(run_id, {})
-    api_token = run_info.get("api_token")
-    if not api_token:
-        search_type = run_info.get("search_type", "username")
-        api_token = get_runtime_value("APIFY_TOKEN") if search_type == "hashtag" else get_runtime_value("APIFY_USERNAME_TOKEN")
+    search_type = run_info.get("search_type", "username")
+    api_token = run_info.get("api_token") or _token_for_search(search_type)
     if not api_token:
         raise HTTPException(status_code=500, detail="Apify token not configured")
 
     # Handle cached results
     if run_info.get("is_cached"):
-        cached = run_info.get("cached_results", [])
-        results = []
-        for item in cached:
-            try:
-                results.append(ReelResult(**item))
-            except Exception as e:
-                logger.error(f"Error converting cached result: {e}")
-        active_runs.pop(run_id, None)
-        return SearchStatusResponse(
-            status="SUCCEEDED", progress=100, estimated_seconds_remaining=0,
-            results=results, total=len(results),
-            message=f"Retrieved {len(results)} cached results (saved Apify credits!)",
-        )
+        return _build_cached_status_response(run_id, run_info)
 
     started_at = run_info.get("started_at", datetime.now(timezone.utc))
     max_results = run_info.get("max_results", 25)
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
-    search_type = run_info.get("search_type", "username")
     cache_key = run_info.get("cache_key")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -301,21 +358,10 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
             run_status = status_data["data"]["status"]
             dataset_id = status_data["data"].get("defaultDatasetId")
 
-            # Progress estimation
-            elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
-            estimated_total = max_results * 2.5
-            progress = min(95, int((elapsed / estimated_total) * 100)) if estimated_total > 0 else 0
-            estimated_remaining = max(0, int(estimated_total - elapsed))
-
-            # Items processed counter
+            progress, estimated_remaining = _compute_progress(started_at, max_results)
             items_processed = 0
-            if dataset_id and run_status == "RUNNING":
-                try:
-                    ds = await client.get(f"https://api.apify.com/v2/datasets/{dataset_id}?token={get_runtime_value('APIFY_TOKEN')}")
-                    if ds.status_code == 200:
-                        items_processed = ds.json().get("data", {}).get("itemCount", 0)
-                except Exception:
-                    pass
+            if run_status == "RUNNING":
+                items_processed = await _fetch_items_processed(client, dataset_id)
 
             if run_status == "SUCCEEDED":
                 dataset_response = await client.get(
@@ -354,9 +400,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
     run_info = active_runs.get(run_id, {})
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
     search_type = run_info.get("search_type", "unknown")
-    api_token = run_info.get("api_token")
-    if not api_token:
-        api_token = get_runtime_value("APIFY_TOKEN") if search_type == "hashtag" else get_runtime_value("APIFY_USERNAME_TOKEN")
+    api_token = run_info.get("api_token") or _token_for_search(search_type)
     if not api_token:
         raise HTTPException(status_code=500, detail="Apify token not configured")
 

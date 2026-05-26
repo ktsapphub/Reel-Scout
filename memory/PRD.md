@@ -13,14 +13,14 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 ## Code Architecture
 ```
 /app/backend/
-├── server.py                  # Slim app + router mounting
-├── config.py                  # Env vars, DB, Cloudinary, JWT
+├── server.py                  # Slim app + router mounting + startup hook
+├── config.py                  # Env vars, DB, JWT, runtime credential container
 ├── models.py                  # Pydantic models
 ├── routes/
 │   ├── auth.py                # Auth + audit logging
-│   ├── reels.py               # Search, upload, export
-│   ├── apify.py               # Status check, history
-│   └── settings.py            # Build info, connection checks
+│   ├── reels.py               # Search (refactored with helper extraction), upload, export
+│   ├── apify.py               # Status check + health recording
+│   └── settings.py            # Build info, connection checks, credentials, health TTL
 ├── services/
 │   ├── apify_service.py       # Apify API, caching, result processing
 │   ├── cloudinary_service.py  # Upload logic
@@ -28,17 +28,21 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 │   └── health_service.py      # Connection health + validity TTL (v2.2.0)
 
 /app/frontend/src/
-├── App.js                     # Router (Login, Dashboard, History, AuditLog, Settings)
-├── pages/
-│   ├── DashboardPage.jsx      # Search orchestrator
-│   ├── HistoryPage.jsx        # Search history
-│   ├── AuditLogPage.jsx       # Activity log
-│   ├── SettingsPage.jsx       # Connections & build config
+├── App.js                     # Router + safeStorage wrapper + cross-tab logout (v2.3.0)
+├── lib/safeStorage.js         # Safe localStorage with try/catch (v2.3.0)
+├── hooks/useSearchPolling.js  # Polling hook (v2.3.0 — extracted from DashboardPage)
+├── pages/                     # Slim orchestrators
+│   ├── DashboardPage.jsx      # 805 -> 468 lines after extraction
+│   ├── HistoryPage.jsx
+│   ├── AuditLogPage.jsx
+│   ├── SettingsPage.jsx       # 704 -> 407 lines after extraction
 │   └── LoginPage.jsx
 ├── components/
 │   ├── HelpPanel.jsx
 │   ├── ReelCard.jsx
-│   └── modals/ (ApifyStatus, ExecutionStatus, UploadProgress)
+│   ├── modals/                # ApifyStatus, ExecutionStatus, UploadProgress
+│   ├── dashboard/             # SearchForm.jsx, ResultsGrid.jsx (v2.3.0)
+│   └── settings/              # ValidityPill, CredentialRow, ConnectionCard, MongoCredentialView (v2.3.0)
 ```
 
 ## What's Been Implemented
@@ -65,6 +69,13 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.3.0 — 2026-05-26) P0 Refactor — modularization**:
+  - Extracted `useSearchPolling` hook + `<SearchForm>` + `<ResultsGrid>` from `DashboardPage.jsx` (805 → 468 lines)
+  - Extracted `<ValidityPill>`, `<CredentialRow>`, `<ConnectionCard>`, `<MongoCredentialView>` from `SettingsPage.jsx` (704 → 407 lines)
+  - Added `lib/safeStorage.js` (try/catch wrapper) + cross-tab logout listener in `App.js`
+  - Backend `routes/reels.py`: extracted `_resolve_search_input`, `_maybe_return_cached`, `_token_for_search`, `_build_cached_status_response`, `_compute_progress`, `_fetch_items_processed` — `start_search` & `get_search_status` are now ~30 lines each
+  - Removed stray `console.error`; replaced all raw `localStorage.*` calls with safe wrappers
+  - testing_agent_v3_fork verified: 39/39 backend tests pass, 95% frontend (2 low-priority non-blocking concerns)
 
 ## Prioritized Backlog
 ### P1

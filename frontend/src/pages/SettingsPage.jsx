@@ -379,37 +379,6 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
     try {
       const response = await api.get("/settings/health-status");
       setHealthSummary(response.data || {});
-      // Hydrate per-service status from last health record (validity TTL persists across refresh)
-      const a = response.data?.apify;
-      if (a?.checked_at) {
-        setApifyStatus((prev) => ({
-          ...(prev || {}),
-          connected: !!a.connected,
-          checked_at: a.checked_at,
-          valid_until: a.valid_until,
-          validity_minutes: a.validity_minutes,
-        }));
-      }
-      const c = response.data?.cloudinary;
-      if (c?.checked_at) {
-        setCloudinaryStatus((prev) => ({
-          ...(prev || {}),
-          connected: !!c.connected,
-          checked_at: c.checked_at,
-          valid_until: c.valid_until,
-          validity_minutes: c.validity_minutes,
-        }));
-      }
-      const m = response.data?.mongodb;
-      if (m?.checked_at) {
-        setMongoStatus((prev) => ({
-          ...(prev || {}),
-          connected: !!m.connected,
-          checked_at: m.checked_at,
-          valid_until: m.valid_until,
-          validity_minutes: m.validity_minutes,
-        }));
-      }
     } catch { /* silent */ }
   }, [api]);
 
@@ -554,10 +523,10 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
           {/* Apify */}
           <ConnectionCard
             title="Apify" icon={Wifi}
-            status={apifyStatus ? apifyStatus.connected : null}
-            checkedAt={apifyStatus?.checked_at}
-            validUntil={apifyStatus?.valid_until}
-            validityMinutes={apifyStatus?.validity_minutes}
+            status={apifyStatus ? apifyStatus.connected : (healthSummary.apify?.checked_at ? healthSummary.apify.connected : null)}
+            checkedAt={apifyStatus?.checked_at || healthSummary.apify?.checked_at}
+            validUntil={apifyStatus?.valid_until || healthSummary.apify?.valid_until}
+            validityMinutes={apifyStatus?.validity_minutes || healthSummary.apify?.validity_minutes}
             isChecking={checkingApify}
             onCheck={checkApify}
             credentials={apifyCreds}
@@ -622,10 +591,10 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
           {/* Cloudinary */}
           <ConnectionCard
             title="Cloudinary" icon={Cloud}
-            status={cloudinaryStatus ? cloudinaryStatus.connected : null}
-            checkedAt={cloudinaryStatus?.checked_at}
-            validUntil={cloudinaryStatus?.valid_until}
-            validityMinutes={cloudinaryStatus?.validity_minutes}
+            status={cloudinaryStatus ? cloudinaryStatus.connected : (healthSummary.cloudinary?.checked_at ? healthSummary.cloudinary.connected : null)}
+            checkedAt={cloudinaryStatus?.checked_at || healthSummary.cloudinary?.checked_at}
+            validUntil={cloudinaryStatus?.valid_until || healthSummary.cloudinary?.valid_until}
+            validityMinutes={cloudinaryStatus?.validity_minutes || healthSummary.cloudinary?.validity_minutes}
             isChecking={checkingCloudinary}
             onCheck={checkCloudinary}
             credentials={cloudinaryCreds}
@@ -648,10 +617,10 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
           {/* MongoDB (read-only credentials) */}
           <ConnectionCard
             title="MongoDB" icon={Database}
-            status={mongoStatus ? mongoStatus.connected : null}
-            checkedAt={mongoStatus?.checked_at}
-            validUntil={mongoStatus?.valid_until}
-            validityMinutes={mongoStatus?.validity_minutes}
+            status={mongoStatus ? mongoStatus.connected : (healthSummary.mongodb?.checked_at ? healthSummary.mongodb.connected : null)}
+            checkedAt={mongoStatus?.checked_at || healthSummary.mongodb?.checked_at}
+            validUntil={mongoStatus?.valid_until || healthSummary.mongodb?.valid_until}
+            validityMinutes={mongoStatus?.validity_minutes || healthSummary.mongodb?.validity_minutes}
             isChecking={checkingMongo}
             onCheck={checkMongo}
           >

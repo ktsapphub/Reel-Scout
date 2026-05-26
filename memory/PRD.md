@@ -23,7 +23,9 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 │   └── settings.py            # Build info, connection checks
 ├── services/
 │   ├── apify_service.py       # Apify API, caching, result processing
-│   └── cloudinary_service.py  # Upload logic
+│   ├── cloudinary_service.py  # Upload logic
+│   ├── credentials_service.py # Encrypted DB credential overrides (v2.2.0)
+│   └── health_service.py      # Connection health + validity TTL (v2.2.0)
 
 /app/frontend/src/
 ├── App.js                     # Router (Login, Dashboard, History, AuditLog, Settings)
@@ -52,8 +54,17 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - Service connection verification (Apify, Cloudinary, MongoDB)
   - "Verified X ago" timestamps with stale indicator (>5min)
   - Individual + bulk "Verify All" connection checks
-  - Build info (v2.1.0, tech stack, actor IDs, features)
-- [x] Code quality: SHA256, useCallback/useMemo, extracted helpers
+  - Build info (v2.2.0, tech stack, actor IDs, features)
+- [x] **(v2.2.0 — 2026-05-26) Credential Management & Validity TTL**:
+  - Per-connection "Manage credentials" panel — masked display, Reveal/Edit/Save/Reset
+  - Live API validation before persisting any update (rejects invalid tokens with explicit error)
+  - DB-backed override (Fernet-encrypted, keyed off JWT_SECRET via PBKDF2) — survives restarts
+  - Runtime cloudinary.config() re-init on credential change — no restart needed
+  - "Valid for Xm Ys" countdown pill per service (Apify 60min, Cloudinary 60min, MongoDB 30min)
+  - Health TTL persisted in `connection_health` collection — countdown survives page refresh
+  - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
+  - Audit logs for credential_updated / credential_update_rejected / credential_reset
+- [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
 
 ## Prioritized Backlog
 ### P1

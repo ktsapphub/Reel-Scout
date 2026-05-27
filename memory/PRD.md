@@ -69,6 +69,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.1 — 2026-05-27) Bug fix — Cloudinary upload false-failure & CSV gate**:
+  - **Recovery in `cloudinary_service.upload_reel_to_cloudinary`** — when `cloudinary.uploader.upload` throws (e.g. response timeout after the asset was already received), probe `cloudinary.api.resource(public_id)` and treat as success if the asset exists. Persists to `saved_reels` with `recovered: true` flag.
+  - **DB write isolated** — `saved_reels` upsert failures no longer mark uploads as failed (logged as warnings; Cloudinary is the source of truth)
+  - **Export enrichment in `/api/reels/export`** — missing `cloudinary_url` is filled from `saved_reels` collection by `reel_url`. Recovered count logged
+  - **Frontend gate relaxed** — Export CSV button now shows whenever reels are selected (no longer hidden until something is uploaded). Toast tells user how many URLs were recovered from DB
 - [x] **(v2.6.0 — 2026-05-27) P1 — Saved Search Presets**:
   - Per-user CRUD via `routes/presets.py` (`GET/POST /api/presets`, `DELETE /api/presets/{id}`)
   - MongoDB `search_presets` collection (id, user_email, name, config, created_at, updated_at)

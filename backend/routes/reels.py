@@ -520,6 +520,27 @@ async def export_reels(request: ExportRequest, user_email: str = Depends(get_cur
     if not reels:
         raise HTTPException(status_code=400, detail="No reels to export")
 
+    # Enrich missing cloudinary_url from saved_reels collection (handles the
+    # case where the upload "failed" in the UI but the asset is in Cloudinary)
+    from config import db as _db
+    missing_urls = [r.get("reel_url") for r in reels if not r.get("cloudinary_url") and r.get("reel_url")]
+    if missing_urls:
+        lookup = {}
+        async for doc in _db.saved_reels.find(
+            {"reel_url": {"$in": missing_urls}},
+            {"_id": 0, "reel_url": 1, "cloudinary_url": 1, "cloudinary_public_id": 1},
+        ):
+            lookup[doc.get("reel_url")] = doc
+        recovered = 0
+        for r in reels:
+            if not r.get("cloudinary_url") and r.get("reel_url") in lookup:
+                d = lookup[r["reel_url"]]
+                r["cloudinary_url"] = d.get("cloudinary_url", "")
+                r["cloudinary_public_id"] = d.get("cloudinary_public_id", "")
+                recovered += 1
+        if recovered:
+            logger.info(f"Export: recovered {recovered} cloudinary_url(s) from saved_reels DB")
+
     owners = list(set(r.get("owner_username", "") for r in reels if r.get("owner_username")))
     date_str = datetime.now().strftime("%m-%d-%y")
     filename = f"{owners[0]}_{date_str}_results.csv" if len(owners) == 1 else f"multiple_owners_{date_str}_results.csv"

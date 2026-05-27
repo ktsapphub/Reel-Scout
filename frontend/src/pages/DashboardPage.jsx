@@ -323,8 +323,8 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   };
 
   const handleExport = async () => {
-    const toExport = results.filter(r => selectedIds.has(r.id) && uploadedReelIds.has(r.id));
-    if (!toExport.length) { toast.error("No uploaded reels to export. Upload to Cloudinary first."); return; }
+    const toExport = results.filter(r => selectedIds.has(r.id));
+    if (!toExport.length) { toast.error("Please select at least one reel to export."); return; }
     setExporting(true);
     try {
       const response = await api.post("/reels/export", { reels: toExport, selected_only: true }, { responseType: "blob" });
@@ -333,7 +333,12 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       const cd = response.headers["content-disposition"];
       link.setAttribute("download", cd ? cd.match(/filename=(.+)/)?.[1] || "reels_export.csv" : "reels_export.csv");
       document.body.appendChild(link); link.click(); link.remove(); window.URL.revokeObjectURL(url);
-      toast.success(`Exported ${toExport.length} reels with Cloudinary URLs`);
+      const missingCount = toExport.filter(r => !uploadedReelIds.has(r.id)).length;
+      if (missingCount > 0) {
+        toast.success(`Exported ${toExport.length} reels (${missingCount} recovered from Cloudinary records)`);
+      } else {
+        toast.success(`Exported ${toExport.length} reels with Cloudinary URLs`);
+      }
     } catch { toast.error("Export failed"); }
     finally { setExporting(false); }
   };

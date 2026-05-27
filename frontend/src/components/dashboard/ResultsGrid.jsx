@@ -23,8 +23,6 @@ export function ResultsGrid({
 
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE);
   const paginated = results.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
-  const hasUploadedSelected = Array.from(selectedIds).some(id => uploadedReelIds.has(id));
-  const allSelectedUploaded = selectedIds.size > 0 && Array.from(selectedIds).every(id => uploadedReelIds.has(id));
 
   const toggleSelect = (id) => {
     const n = new Set(selectedIds);
@@ -72,18 +70,15 @@ export function ResultsGrid({
             {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Cloud className="w-4 h-4 mr-2" />}
             Upload to Cloudinary
           </Button>
-          {hasUploadedSelected && (
-            <Button
-              variant="outline" size="sm" onClick={onExport}
-              disabled={exporting || !allSelectedUploaded}
-              className="border-slate-200 text-slate-700 hover:bg-slate-50"
-              data-testid="export-csv-btn"
-            >
-              {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-              Export CSV
-              {!allSelectedUploaded && selectedIds.size > 0 && <Badge variant="outline" className="ml-2 text-xs">Upload first</Badge>}
-            </Button>
-          )}
+          <Button
+            variant="outline" size="sm" onClick={onExport}
+            disabled={exporting || selectedIds.size === 0}
+            className="border-slate-200 text-slate-700 hover:bg-slate-50"
+            data-testid="export-csv-btn"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            Export CSV ({selectedIds.size})
+          </Button>
         </div>
       </div>
 

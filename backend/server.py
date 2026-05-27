@@ -11,11 +11,13 @@ from routes.auth import router as auth_router
 from routes.reels import router as reels_router
 from routes.apify import router as apify_router
 from routes.settings import router as settings_router
+from routes.presets import router as presets_router
 
 app.include_router(auth_router)
 app.include_router(reels_router)
 app.include_router(apify_router)
 app.include_router(settings_router)
+app.include_router(presets_router)
 
 app.add_middleware(
     CORSMiddleware,

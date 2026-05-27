@@ -69,6 +69,14 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.0 — 2026-05-27) P1 — Saved Search Presets**:
+  - Per-user CRUD via `routes/presets.py` (`GET/POST /api/presets`, `DELETE /api/presets/{id}`)
+  - MongoDB `search_presets` collection (id, user_email, name, config, created_at, updated_at)
+  - Limits: 60-char name, 50 presets per user, name uniqueness per user
+  - Frontend `<PresetMenu>` dropdown in SearchForm header — shows count badge, type icon, "X results" line
+  - "Save current as preset…" dialog captures search type, inputs, max results, date range, tagged-posts
+  - Hover-to-reveal delete button per row; click row to apply preset back to the form
+  - Audited as `preset_created` / `preset_deleted`
 - [x] **(v2.5.0 — 2026-05-26) P2 + P3 Polish**:
   - **Better search progress** (`/components/dashboard/SearchProgress.jsx`) — 4-stage timeline (Starting → Scraping → Filtering → Complete), live "discovered" count, ETA, stage subtitle (e.g. "Sifting through 47 items"), animated active-stage ring
   - **Header health dot** (`/components/HealthDot.jsx`) — polls `/api/settings/health-status` every 60s on Dashboard header. Colored dot + per-service indicators (`apify:✓ · cloudinary:✓ · mongodb:✓`). Green/amber/red based on connection state; click navigates to Settings
@@ -91,10 +99,14 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
 
 ## Prioritized Backlog
 ### P1
-- [ ] Saved Search Presets
+- [x] Saved Search Presets — shipped 2026-05-27
 
 ### P2
-- [ ] Enhanced search progress indicator
+- [ ] Final visual smoke-test of `SearchProgress.jsx` (4-stage timeline) — pending valid Apify token to trigger a real search
+
+### P3
+- [ ] Rename / edit existing presets (currently must delete + re-save)
+- [ ] Preset sharing across users (currently scoped per user_email)
 
 ## Test Credentials
 - mydatejar@gmail.com / #Test1234

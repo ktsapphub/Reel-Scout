@@ -32,6 +32,8 @@ export function SearchForm({
   onSearch, onStop, onCsvUpload, onDownloadSampleCsv,
   // polling state
   searching, progress, estimatedTime, itemsProcessed,
+  // presets
+  presetMenu,
 }) {
   const estimatedCost = ((maxResults / 1000) * 2.6).toFixed(2);
 
@@ -46,9 +48,12 @@ export function SearchForm({
   return (
     <Card className="border-slate-200 shadow-sm mb-8 animate-fade-in">
       <CardHeader className="pb-4">
-        <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-          <Search className="w-5 h-5 text-blue-600" />Search Reels
-        </CardTitle>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <Search className="w-5 h-5 text-blue-600" />Search Reels
+          </CardTitle>
+          {presetMenu}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <Tabs value={searchType} onValueChange={setSearchType}>

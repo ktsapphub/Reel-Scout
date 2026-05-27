@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class IGReelFinderAPITester:
-    def __init__(self, base_url="https://reel-scout-4.preview.emergentagent.com"):
+    def __init__(self, base_url="https://ig-scraper-2.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.run_id = None

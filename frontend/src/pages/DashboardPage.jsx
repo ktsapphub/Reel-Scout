@@ -21,6 +21,7 @@ import { HealthDot } from "@/components/HealthDot";
 import { ConnectionGuardModal } from "@/components/modals/ConnectionGuardModal";
 import { SearchForm } from "@/components/dashboard/SearchForm";
 import { ResultsGrid } from "@/components/dashboard/ResultsGrid";
+import { PresetMenu } from "@/components/dashboard/PresetMenu";
 import { useSearchPolling } from "@/hooks/useSearchPolling";
 
 const MAX_USERNAME_FIELDS = 10;
@@ -370,6 +371,36 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // --- Preset config (serializable snapshot of search form) ---
+  const presetConfig = useMemo(() => ({
+    searchType,
+    usernames,
+    profileUrls,
+    hashtagInput,
+    maxResults,
+    includeTaggedPosts,
+    dateRange: {
+      from: dateRange.from ? new Date(dateRange.from).toISOString() : null,
+      to: dateRange.to ? new Date(dateRange.to).toISOString() : null,
+    },
+  }), [searchType, usernames, profileUrls, hashtagInput, maxResults, includeTaggedPosts, dateRange]);
+
+  const applyPreset = useCallback((config) => {
+    if (!config || typeof config !== "object") return;
+    if (config.searchType) setSearchType(config.searchType);
+    if (Array.isArray(config.usernames) && config.usernames.length) setUsernames(config.usernames);
+    if (Array.isArray(config.profileUrls) && config.profileUrls.length) setProfileUrls(config.profileUrls);
+    if (typeof config.hashtagInput === "string") setHashtagInput(config.hashtagInput);
+    if (typeof config.maxResults === "number") setMaxResults(config.maxResults);
+    if (typeof config.includeTaggedPosts === "boolean") setIncludeTaggedPosts(config.includeTaggedPosts);
+    if (config.dateRange) {
+      setDateRange({
+        from: config.dateRange.from ? new Date(config.dateRange.from) : undefined,
+        to: config.dateRange.to ? new Date(config.dateRange.to) : undefined,
+      });
+    }
+  }, []);
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-white">
@@ -430,6 +461,14 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
             onCsvUpload={handleCsvUpload} onDownloadSampleCsv={downloadSampleCsv}
             searching={searching} progress={progress}
             estimatedTime={estimatedTime} itemsProcessed={itemsProcessed}
+            presetMenu={
+              <PresetMenu
+                token={token}
+                backendUrl={backendUrl}
+                currentConfig={presetConfig}
+                onApply={applyPreset}
+              />
+            }
           />
 
           {message && (

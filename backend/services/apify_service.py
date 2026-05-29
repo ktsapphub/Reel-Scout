@@ -1,6 +1,8 @@
 import hashlib
 import re
+import base64
 from typing import List, Optional, Dict, Any
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 import httpx
 
@@ -10,6 +12,30 @@ from config import (
     APIFY_CACHE_STORE_NAME
 )
 from models import ReelResult
+
+
+INSTAGRAM_CDN_HOSTS = ("cdninstagram.com", "fbcdn.net")
+
+
+def _is_instagram_cdn_url(url: str) -> bool:
+    if not url or not url.startswith("http"):
+        return False
+    try:
+        host = urlparse(url).hostname or ""
+        return any(h in host for h in INSTAGRAM_CDN_HOSTS)
+    except Exception:
+        return False
+
+
+def _proxify_if_cdn(url: str) -> str:
+    """Wrap Instagram CDN URLs with the /api/reels/video-proxy endpoint so
+    they survive CORS + signed-URL expiration in the browser. Apify KV-store
+    URLs and Cloudinary URLs are returned unchanged.
+    """
+    if not _is_instagram_cdn_url(url):
+        return url
+    encoded = base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
+    return f"/api/reels/video-proxy?u={encoded}"
 
 
 # In-memory store for active runs
@@ -212,12 +238,19 @@ def _build_reel(item: Dict, video_url: Optional[str], duration: float, tagged_us
     if not reel_url and item.get("shortCode"):
         reel_url = f"https://www.instagram.com/reel/{item.get('shortCode')}/"
 
+    # Prefer Apify's persistent KV-store URL when available; otherwise wrap raw
+    # Instagram CDN links through our proxy so the browser <video> can play them.
+    raw_downloaded = item.get("downloadedVideoUrl") or item.get("downloaded_video_url") or ""
+    raw_video = item.get("videoUrl") or item.get("video_url") or video_url or ""
+    downloaded_video_url = raw_downloaded or _proxify_if_cdn(raw_video)
+    original_video_url = raw_video or raw_downloaded
+
     return ReelResult(
         owner_username=item.get("ownerUsername") or item.get("owner_username") or item.get("username") or "",
         owner_full_name=item.get("ownerFullName") or item.get("owner_full_name") or item.get("fullName") or "",
         reel_url=reel_url,
-        downloaded_video_url=item.get("videoUrl") or item.get("video_url") or item.get("downloadedVideoUrl") or "",
-        original_video_url=item.get("videoUrl") or item.get("displayUrl") or "",
+        downloaded_video_url=downloaded_video_url,
+        original_video_url=original_video_url,
         timestamp=item.get("timestamp") or item.get("taken_at") or item.get("takenAt") or "",
         video_duration_seconds=duration or 0,
         video_transcript=item.get("transcript") or item.get("caption") or item.get("text") or "",

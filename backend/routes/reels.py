@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 import httpx
 import re
 import csv
 import io
+import base64
+from urllib.parse import urlparse
 from fastapi.responses import StreamingResponse
 
 from config import (
@@ -24,6 +26,99 @@ from services.apify_service import (
 from services.cloudinary_service import upload_reel_to_cloudinary
 
 router = APIRouter(prefix="/api")
+
+
+# --- Video proxy ---
+# Instagram CDN URLs have short-lived signed tokens + CORS restrictions that
+# block playback in <video> elements. We proxy the bytes through our server so
+# the frontend can play them transparently. Apify key-value-store URLs and our
+# own Cloudinary URLs already work cross-origin, so we leave those untouched.
+
+INSTAGRAM_CDN_HOSTS = ("cdninstagram.com", "fbcdn.net")
+
+
+def _is_instagram_cdn_url(url: str) -> bool:
+    if not url or not url.startswith("http"):
+        return False
+    try:
+        host = urlparse(url).hostname or ""
+        return any(h in host for h in INSTAGRAM_CDN_HOSTS)
+    except Exception:
+        return False
+
+
+def proxify_video_url(url: str) -> str:
+    """Wrap Instagram CDN URLs with our proxy endpoint; pass everything else through."""
+    if not _is_instagram_cdn_url(url):
+        return url
+    encoded = base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
+    return f"/api/reels/video-proxy?u={encoded}"
+
+
+@router.get("/reels/video-proxy")
+async def video_proxy(
+    request: Request,
+    u: str = Query(..., description="Base64-url-safe encoded video URL"),
+):
+    """Stream an Instagram CDN video through our backend with full Range support.
+
+    Forwards the ``Range`` header upstream and mirrors the upstream status
+    (200 vs 206), ``Content-Length``, ``Content-Range`` and ``Accept-Ranges``
+    headers — required for HTML5 ``<video>`` seeking + progressive playback.
+    """
+    try:
+        padding = "=" * (-len(u) % 4)
+        url = base64.urlsafe_b64decode(u + padding).decode()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid encoded URL")
+
+    if not _is_instagram_cdn_url(url):
+        raise HTTPException(status_code=400, detail="Only Instagram CDN URLs may be proxied")
+
+    upstream_headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Referer": "https://www.instagram.com/",
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    range_header = request.headers.get("range")
+    if range_header:
+        upstream_headers["Range"] = range_header
+
+    client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, read=180.0), follow_redirects=True)
+    upstream = await client.send(client.build_request("GET", url, headers=upstream_headers), stream=True)
+
+    if upstream.status_code >= 400:
+        body = (await upstream.aread())[:300]
+        await upstream.aclose()
+        await client.aclose()
+        logger.warning(f"Video proxy upstream {upstream.status_code} for {url[:80]}: {body!r}")
+        raise HTTPException(status_code=502, detail=f"Upstream {upstream.status_code}")
+
+    response_headers = {
+        "Content-Type": upstream.headers.get("content-type", "video/mp4"),
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
+    }
+    for k in ("content-length", "content-range"):
+        if k in upstream.headers:
+            response_headers[k.title()] = upstream.headers[k]
+
+    async def stream():
+        try:
+            async for chunk in upstream.aiter_bytes(chunk_size=64 * 1024):
+                yield chunk
+        finally:
+            await upstream.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        stream(),
+        status_code=upstream.status_code,
+        media_type=response_headers["Content-Type"],
+        headers=response_headers,
+    )
 
 
 # --- Search input builders ---

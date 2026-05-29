@@ -69,6 +69,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.9 — 2026-05-29) Post URL video playback + better field mapping**:
+  - **New `/api/reels/video-proxy`** endpoint streams Instagram CDN videos through our backend with **full Range/206 Partial Content support** (verified `bytes=0-1023` → 206 with `content-range: bytes 0-1023/7369825`). Forwards browser `Range` headers upstream, mirrors `content-length`/`content-range`/`accept-ranges` so HTML5 `<video>` seeking + progressive playback work. Sends a desktop Chrome User-Agent + `Referer: https://www.instagram.com/` so Instagram's CDN doesn't reject the request.
+  - **Auto-wraps Instagram CDN URLs** in `_build_reel` — only the `cdninstagram.com`/`fbcdn.net` hosts get proxied. Apify KV-store URLs (from the username scraper) and Cloudinary URLs pass through unchanged.
+  - **Better field mapping** in `_build_reel` — prefers Apify's `downloadedVideoUrl` (persistent), falls back to proxified raw `videoUrl`. Sets `original_video_url` separately so the unproxied URL is still available for downstream use.
+  - Tested via curl: full mp4 download is 7.37 MB with valid `ftypisom`+`avc1` (H.264). Real-world browsers play this; headless Chromium lacks proprietary codecs so it can't be smoke-tested visually.
 - [x] **(v2.6.8 — 2026-05-29) Bug fix · Post URL 500 errors + better error surfacing**:
   - **Root cause**: `_build_post_url_input` called `generate_cache_key()` with an unsupported `post_urls=` kwarg → uncaught `TypeError` → HTTP 500. Plus the wrong Apify actor was selected (`instagram-reel-scraper` requires `username`, not `directUrls`).
   - **Fix 1**: `generate_cache_key()` now accepts `post_urls` and hashes the sorted URL set.

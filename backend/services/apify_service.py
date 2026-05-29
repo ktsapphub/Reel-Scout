@@ -44,12 +44,15 @@ async def get_or_create_cache_store() -> Optional[str]:
             return None
 
 
-def generate_cache_key(search_type: str, usernames: List[str] = None, hashtag: str = None, max_results: int = 25) -> Optional[str]:
+def generate_cache_key(search_type: str, usernames: List[str] = None, hashtag: str = None, max_results: int = 25, post_urls: List[str] = None) -> Optional[str]:
     if search_type == "username" and usernames:
         sorted_users = sorted([u.lower().strip() for u in usernames])
         key_data = f"username:{','.join(sorted_users)}:limit:{max_results}"
     elif search_type == "hashtag" and hashtag:
         key_data = f"hashtag:{hashtag.lower().strip()}:limit:{max_results}"
+    elif search_type == "post_url" and post_urls:
+        sorted_urls = sorted([u.lower().strip().rstrip("/") for u in post_urls])
+        key_data = f"post_url:{','.join(sorted_urls)}"
     else:
         return None
     hash_obj = hashlib.sha256(key_data.encode())

@@ -316,6 +316,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       const response = await api.post("/reels/search/start", payload);
       const { run_id, status, message: msg, error } = response.data;
       if (status === "NOT_SUPPORTED") {
+        resetSearchingFlag();
         setMessage(msg);
         showExecutionResult("NOT_SUPPORTED", msg, {
           error_type: "NOT_SUPPORTED", error_message: msg, error_code: "ACTOR_LIMITATION",
@@ -326,7 +327,11 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
         return;
       }
       if (status === "CACHED") { startPolling(run_id, 0); toast.success("Found cached results!"); return; }
-      if (status === "ERROR") { showExecutionResult("ERROR", msg, error, 0, null); return; }
+      if (status === "ERROR") {
+        resetSearchingFlag();
+        showExecutionResult("ERROR", msg, error, 0, null);
+        return;
+      }
       startPolling(run_id, maxResults * 2.5);
       toast.info("Search started...");
     } catch (error) {

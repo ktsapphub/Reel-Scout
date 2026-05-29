@@ -32,6 +32,7 @@ USER_PASSWORD = os.environ.get("USER_PASSWORD")
 # Apify (static actor IDs — not editable at runtime)
 APIFY_ACTOR_ID = "xMc5Ga1oCONPmWJIa"
 APIFY_REEL_SCRAPER_ID = "apify~instagram-reel-scraper"
+APIFY_GENERAL_SCRAPER_ID = "apify~instagram-scraper"  # General — supports directUrls
 APIFY_HASHTAG_ACTOR_ID = "reGe1ST3OBgYZSsZJ"
 APIFY_CACHE_STORE_NAME = "ig-reel-finder-cache"
 APIFY_HASHTAG_KV_STORE_ID = "SvuIw7S8Yl3wY5Lvb"

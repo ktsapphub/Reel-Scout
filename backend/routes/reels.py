@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from config import (
     logger, get_runtime_value,
-    APIFY_ACTOR_ID, APIFY_REEL_SCRAPER_ID, APIFY_HASHTAG_ACTOR_ID
+    APIFY_ACTOR_ID, APIFY_REEL_SCRAPER_ID, APIFY_GENERAL_SCRAPER_ID, APIFY_HASHTAG_ACTOR_ID
 )
 from models import (
     SearchRequest, ReelResult,
@@ -141,8 +141,8 @@ def _build_post_url_input(request: SearchRequest) -> tuple:
         "resultsLimit": len(valid),
         "addParentData": False,
     }
-    logger.info(f"Post URL search: {len(valid)} URLs")
-    return APIFY_REEL_SCRAPER_ID, apify_input, cache_key
+    logger.info(f"Post URL search via {APIFY_GENERAL_SCRAPER_ID}: {len(valid)} URLs")
+    return APIFY_GENERAL_SCRAPER_ID, apify_input, cache_key
 
 
 def _make_error_response(exc: Exception) -> StartSearchResponse:
@@ -403,57 +403,100 @@ async def _fetch_items_processed(client: httpx.AsyncClient, dataset_id: Optional
 @router.post("/reels/search/start", response_model=StartSearchResponse)
 async def start_search(request: SearchRequest, user_email: str = Depends(get_current_user)):
     if not get_runtime_value("APIFY_TOKEN"):
-        raise HTTPException(status_code=500, detail="Apify token not configured")
+        return StartSearchResponse(
+            run_id="", status="ERROR", message="Apify token not configured",
+            error=ExecutionError(
+                error_type="CONFIGURATION", error_message="Apify API token is missing",
+                error_code="MISSING_APIFY_TOKEN",
+                possible_cause="No Apify token has been saved in Settings, or the saved value is empty.",
+                suggested_solution="Open Settings → paste your Apify API token into the input → click Save.",
+                technical_details="get_runtime_value('APIFY_TOKEN') returned empty",
+            ),
+        )
 
-    actor_id, apify_input, cache_key = _resolve_search_input(request)
-    if request.search_type == "url" and actor_id is None:
-        return _url_parse_error_response(request.urls)
-    if request.search_type == "post_url" and actor_id is None:
-        return _post_url_parse_error_response(request.post_urls)
+    try:
+        actor_id, apify_input, cache_key = _resolve_search_input(request)
+        if request.search_type == "url" and actor_id is None:
+            return _url_parse_error_response(request.urls)
+        if request.search_type == "post_url" and actor_id is None:
+            return _post_url_parse_error_response(request.post_urls)
 
-    cached = await _maybe_return_cached(cache_key, request, actor_id, user_email)
-    if cached:
-        return cached
+        cached = await _maybe_return_cached(cache_key, request, actor_id, user_email)
+        if cached:
+            return cached
 
-    api_token = _token_for_search(request.search_type)
-    if not api_token:
-        token_type = "APIFY_TOKEN" if request.search_type == "hashtag" else "APIFY_USERNAME_TOKEN"
-        raise HTTPException(status_code=500, detail=f"{token_type} not configured")
-
-    # Fast path: try sync endpoint for small single-target searches.
-    if _should_use_sync_path(request):
-        sync_response = await _try_sync_run(request, actor_id, apify_input, api_token, cache_key, user_email)
-        if sync_response:
-            return sync_response
-        # else: fell back to async path below
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            run_response = await client.post(
-                f"https://api.apify.com/v2/acts/{actor_id}/runs?token={api_token}",
-                json=apify_input,
-                headers={"Content-Type": "application/json"},
+        api_token = _token_for_search(request.search_type)
+        if not api_token:
+            token_type = "APIFY_TOKEN" if request.search_type in ("hashtag", "post_url") else "APIFY_USERNAME_TOKEN"
+            return StartSearchResponse(
+                run_id="", status="ERROR", message=f"{token_type} not configured",
+                error=ExecutionError(
+                    error_type="CONFIGURATION",
+                    error_message=f"{token_type} is required for {request.search_type} searches",
+                    error_code=f"MISSING_{token_type}",
+                    possible_cause=f"No {token_type} saved in Settings.",
+                    suggested_solution=f"Open Settings → paste a valid Apify token into the {token_type} input → Save.",
+                    technical_details=f"_token_for_search('{request.search_type}') returned empty",
+                ),
             )
-            run_response.raise_for_status()
-            run_id = run_response.json()["data"]["id"]
 
-            active_runs[run_id] = {
-                "user_email": user_email, "started_at": datetime.now(timezone.utc),
-                "max_results": request.max_results, "search_type": request.search_type,
-                "actor_id": actor_id, "cache_key": cache_key, "api_token": api_token,
-                "only_posts_newer_than": request.only_posts_newer_than,
-                "only_posts_older_than": request.only_posts_older_than,
-            }
-            logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")
-            await log_audit("search_started", user_email, {
-                "run_id": run_id, "search_type": request.search_type,
-                "usernames": request.usernames, "hashtag": request.hashtag,
-                "max_results": request.max_results, "actor_id": actor_id,
-            })
-            return StartSearchResponse(run_id=run_id, status="RUNNING")
-        except Exception as e:
-            logger.error(f"Apify API error: {e}")
-            return _make_error_response(e)
+        # Fast path: try sync endpoint for small single-target searches.
+        if _should_use_sync_path(request):
+            try:
+                sync_response = await _try_sync_run(request, actor_id, apify_input, api_token, cache_key, user_email)
+                if sync_response:
+                    return sync_response
+                # else: fell back to async path below
+            except Exception as sync_exc:
+                logger.error(f"Sync path failed for {request.search_type}: {sync_exc} — falling back to async")
+                # Don't fail — fall through to async path
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                run_response = await client.post(
+                    f"https://api.apify.com/v2/acts/{actor_id}/runs?token={api_token}",
+                    json=apify_input,
+                    headers={"Content-Type": "application/json"},
+                )
+                run_response.raise_for_status()
+                run_id = run_response.json()["data"]["id"]
+
+                active_runs[run_id] = {
+                    "user_email": user_email, "started_at": datetime.now(timezone.utc),
+                    "max_results": request.max_results, "search_type": request.search_type,
+                    "actor_id": actor_id, "cache_key": cache_key, "api_token": api_token,
+                    "only_posts_newer_than": request.only_posts_newer_than,
+                    "only_posts_older_than": request.only_posts_older_than,
+                }
+                logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")
+                await log_audit("search_started", user_email, {
+                    "run_id": run_id, "search_type": request.search_type,
+                    "usernames": request.usernames, "hashtag": request.hashtag,
+                    "max_results": request.max_results, "actor_id": actor_id,
+                })
+                return StartSearchResponse(run_id=run_id, status="RUNNING")
+            except Exception as e:
+                logger.error(f"Apify API error: {e}")
+                return _make_error_response(e)
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Catch-all so the frontend always gets a structured ExecutionError instead of a 500.
+        logger.exception(f"Unexpected error in start_search ({request.search_type}): {e}")
+        return StartSearchResponse(
+            run_id="", status="ERROR", message="Unexpected server error while starting search",
+            error=ExecutionError(
+                error_type="SERVER_ERROR",
+                error_message=str(e) or "Unknown error",
+                error_code=f"INTERNAL_{type(e).__name__.upper()}",
+                possible_cause="A bug or unhandled edge case in the search-start flow.",
+                suggested_solution=(
+                    "Try a different search type or smaller batch. If it persists, check Settings → "
+                    "Apify connection is healthy + re-save the token. Share this error_code with the dev team."
+                ),
+                technical_details=f"{type(e).__name__}: {e}",
+            ),
+        )
 
 
 @router.get("/reels/search/status/{run_id}", response_model=SearchStatusResponse)

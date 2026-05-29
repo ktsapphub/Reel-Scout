@@ -69,6 +69,14 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.8 — 2026-05-29) Bug fix · Post URL 500 errors + better error surfacing**:
+  - **Root cause**: `_build_post_url_input` called `generate_cache_key()` with an unsupported `post_urls=` kwarg → uncaught `TypeError` → HTTP 500. Plus the wrong Apify actor was selected (`instagram-reel-scraper` requires `username`, not `directUrls`).
+  - **Fix 1**: `generate_cache_key()` now accepts `post_urls` and hashes the sorted URL set.
+  - **Fix 2**: Switched the actor from `apify~instagram-reel-scraper` → **`apify~instagram-scraper`** (the general actor) — verified live to accept `directUrls` and return full reel metadata for the user's exact URL.
+  - **Fix 3**: Wrapped the entire `start_search` body in a top-level try/except so ANY future exception becomes a structured `ExecutionError` response (with error_type, error_code, possible_cause, suggested_solution, technical_details) instead of a generic 500. Sync path errors now log + fall back to async instead of bubbling.
+  - **Fix 4**: Replaced `raise HTTPException(500, ...)` for missing tokens with structured `ExecutionError` responses pointing the user to Settings to paste their token.
+  - **Frontend fix**: Reset `searching` flag on `status === "ERROR"` and `status === "NOT_SUPPORTED"` so the UI doesn't get stuck.
+  - **Live verified**: `https://www.instagram.com/reel/DY7Nv_GR2X1/` now returns `@theexcursiondoctor` reel (39.9s) in 3s via the fast-sync path.
 - [x] **(v2.6.7 — 2026-05-29) Post URL direct lookup (4th search mode)**:
   - **New search type `"post_url"`** in `SearchRequest` (backend `models.py`) — accepts up to 10 direct reel/post URLs.
   - **Backend `_build_post_url_input` (`routes/reels.py`)** — uses `apify~instagram-reel-scraper` actor with `directUrls` payload; cache-keyed by sorted URL set; auto-routed to fast-sync path. Server-side normalization + regex validation; structured error response on bad inputs.

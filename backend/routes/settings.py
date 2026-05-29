@@ -22,8 +22,8 @@ from services.health_service import (
 
 router = APIRouter(prefix="/api")
 
-APP_VERSION = "2.2.0"
-BUILD_DATE = "2026-03-05"
+APP_VERSION = "2.6.3"
+BUILD_DATE = "2026-05-29"
 
 
 @router.get("/settings/build-info")

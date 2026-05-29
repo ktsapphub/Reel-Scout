@@ -69,6 +69,12 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.3 — 2026-05-29) Settings page deep redo**:
+  - **New `ApifyConnectionGuide.jsx`** — top card explaining 3 Apify connection methods (Fast Sync, Async Run+Poll, Webhooks) with `in use for small queries` badge on Fast Sync, latency expectations, docs links, and a "For best performance" callout.
+  - **New `ErrorResolutionPanel.jsx`** — pattern-matches connection errors (401/403/timeout/rate-limit/missing-creds) to specific resolution steps with one-click CTAs (Apify Console, Cloudinary Console, status pages). Falls back to a generic panel with retry for unmatched errors.
+  - **Prominent connection lifetime** — `ValidityPill` "Valid for 59m 56s" with animated progress bar, visible at the top of each connection card.
+  - **Visible version badge `v2.6.3`** in Settings header → acts as a cache buster signal so users know they have the latest build.
+  - **`APP_VERSION` bumped** in `routes/settings.py` (2.2.0 → 2.6.3) + `BUILD_DATE` updated.
 - [x] **(v2.6.2 — 2026-05-29) Settings UI revamp + Token Expiry tracking**:
   - **Always-visible inline inputs** in `CredentialRow.jsx` — no "Edit" click needed. Each credential row shows: current masked value + reveal eye, paste-new-value input + show/hide eye, inline Save button.
   - **Apify token expiry**: optional date picker per Apify credential. Stored in `service_credentials.expires_at`. Apify's API does NOT expose token expiry (verified against their docs), so user enters the date they set in Apify Console.

@@ -13,6 +13,8 @@ import { toast } from "sonner";
 
 import { ConnectionCard } from "@/components/settings/ConnectionCard";
 import { MongoCredentialView } from "@/components/settings/MongoCredentialView";
+import { ApifyConnectionGuide } from "@/components/settings/ApifyConnectionGuide";
+import { ErrorResolutionPanel } from "@/components/settings/ErrorResolutionPanel";
 
 function InfoRow({ label, value, mono }) {
   return (
@@ -193,7 +195,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-              <p className="text-xs text-slate-500">Connections & Configuration</p>
+              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.3</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -232,6 +234,8 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
         </div>
 
         <div className="grid gap-4">
+          <ApifyConnectionGuide />
+
           <ConnectionCard
             title="Apify" icon={Wifi}
             status={apifyDerived.status}
@@ -292,9 +296,11 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
                   </div>
                 )}
                 {apifyStatus.errors?.length > 0 && (
-                  <div className="p-2 bg-red-50 rounded text-xs text-red-700 space-y-0.5">
-                    {apifyStatus.errors.map((err) => <p key={err}>{err}</p>)}
-                  </div>
+                  <ErrorResolutionPanel
+                    service="apify"
+                    error={apifyStatus.errors.join(" | ")}
+                    onRetry={checkApify}
+                  />
                 )}
               </div>
             )}
@@ -320,7 +326,11 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
                 <InfoRow label="Upload Folder" value="Content for Vibe Check" />
                 <InfoRow label="Optimization" value="f_auto / q_auto / vc_auto" mono />
                 {cloudinaryStatus.error && (
-                  <div className="p-2 bg-red-50 rounded text-xs text-red-700 mt-2">{cloudinaryStatus.error}</div>
+                  <ErrorResolutionPanel
+                    service="cloudinary"
+                    error={cloudinaryStatus.error}
+                    onRetry={checkCloudinary}
+                  />
                 )}
               </div>
             )}
@@ -344,7 +354,11 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
               </div>
             )}
             {mongoStatus && mongoStatus.error && (
-              <div className="p-2 bg-red-50 rounded text-xs text-red-700">{mongoStatus.error}</div>
+              <ErrorResolutionPanel
+                service="mongodb"
+                error={mongoStatus.error}
+                onRetry={checkMongo}
+              />
             )}
             <MongoCredentialView
               mongoUrl={buildInfo?.mongo_url_display}

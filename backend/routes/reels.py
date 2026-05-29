@@ -569,6 +569,30 @@ async def export_reels(request: ExportRequest, user_email: str = Depends(get_cur
         writer.writerow(row)
     output.seek(0)
 
+    # Track exports in saved_reels so the History page can show "Exported" badges
+    exported_urls = [r.get("reel_url") for r in reels if r.get("reel_url")]
+    if exported_urls:
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            await _db.saved_reels.update_many(
+                {"reel_url": {"$in": exported_urls}},
+                {"$set": {"exported_at": now_iso, "exported_by": user_email}},
+            )
+            # Upsert lightweight tracking rows for reels that aren't in saved_reels yet
+            existing_urls = set()
+            async for d in _db.saved_reels.find(
+                {"reel_url": {"$in": exported_urls}}, {"_id": 0, "reel_url": 1}
+            ):
+                existing_urls.add(d.get("reel_url"))
+            new_urls = [u for u in exported_urls if u not in existing_urls]
+            if new_urls:
+                await _db.saved_reels.insert_many([
+                    {"reel_url": u, "exported_at": now_iso, "exported_by": user_email}
+                    for u in new_urls
+                ])
+        except Exception as e:
+            logger.warning(f"Failed to track export in saved_reels: {e}")
+
     await log_audit("export", user_email, {"reels_count": len(reels), "filename": filename})
     return StreamingResponse(
         iter([output.getvalue()]),

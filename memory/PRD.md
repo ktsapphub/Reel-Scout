@@ -69,6 +69,13 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.4 — 2026-05-29) History page · upload + export from previously pulled searches**:
+  - **New `ReelStatusBadges.jsx`** — overlay green ☁ Cloudinary + blue 📄 Exported badges on reel thumbnails so users can see at a glance which reels were already uploaded or downloaded.
+  - **New `HistoryActionBar.jsx`** — bulk-action bar with "Select all", "Select not-yet-uploaded", reel counter, and two CTAs: green "Upload to Cloudinary" + blue "Export CSV". Calls the existing `/api/reels/upload` and `/api/reels/export` endpoints with the selected reels.
+  - **Embedded in History row & Expanded modal** — every cached search shows the action bar above its inline preview carousel and inside the full-screen modal.
+  - **Per-search summary badges** — header now shows "✓ N uploaded" + "N exported" pills (from new `uploaded_count` / `exported_count` fields on `/api/search-history`).
+  - **Backend**: `/api/search-history` aggregates `uploaded_count` + `exported_count` per cache entry; `/api/search-history/{cache_key}` enriches each reel with `cloudinary_url`, `cloudinary_public_id`, `uploaded_at`, `exported_at` from `saved_reels` DB; `/api/reels/export` now writes `exported_at` + `exported_by` to `saved_reels` (upserts new rows for reels not previously saved).
+  - Tested end-to-end via curl (`uploaded_count` & `exported_count` correctly aggregated) + screenshot (selection + badges + action bars all render).
 - [x] **(v2.6.3 — 2026-05-29) Settings page deep redo**:
   - **New `ApifyConnectionGuide.jsx`** — top card explaining 3 Apify connection methods (Fast Sync, Async Run+Poll, Webhooks) with `in use for small queries` badge on Fast Sync, latency expectations, docs links, and a "For best performance" callout.
   - **New `ErrorResolutionPanel.jsx`** — pattern-matches connection errors (401/403/timeout/rate-limit/missing-creds) to specific resolution steps with one-click CTAs (Apify Console, Cloudinary Console, status pages). Falls back to a generic panel with retry for unmatched errors.

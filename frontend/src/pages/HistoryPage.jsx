@@ -49,6 +49,74 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
+import { ReelStatusBadges } from "@/components/history/ReelStatusBadges";
+import { HistoryActionBar } from "@/components/history/HistoryActionBar";
+
+// Inline preview section per history row — provides per-reel selection + bulk upload/export
+function InlinePreviewSection({ reels, cacheKey, token, backendUrl, onExpand }) {
+  const actionBar = HistoryActionBar({ token, backendUrl, reels, cacheKey });
+  const shown = reels.slice(0, 15);
+  const extra = reels.length - shown.length;
+
+  return (
+    <div className="border-t border-slate-100 pt-4 space-y-3" data-testid={`inline-preview-${cacheKey}`}>
+      {actionBar.bar}
+      <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+        {shown.map((reel, idx) => {
+          const reelKey = reel.id || reel.reel_url;
+          const isSelected = actionBar.selectedIds.has(reelKey);
+          return (
+            <div
+              key={reelKey || idx}
+              className={`flex-shrink-0 w-32 transition-all relative ${isSelected ? "ring-2 ring-blue-500 rounded-lg" : ""}`}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => actionBar.toggleOne(reelKey)}
+                className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded border-white shadow accent-blue-600"
+                data-testid={`inline-reel-checkbox-${cacheKey}-${idx}`}
+                aria-label="Select reel"
+              />
+              <ReelStatusBadges reel={reel} compact />
+              <div
+                className="bg-slate-900 rounded-lg overflow-hidden cursor-pointer hover:opacity-90"
+                onClick={onExpand}
+              >
+                {(reel.downloaded_video_url || reel.original_video_url) ? (
+                  <video
+                    src={reel.downloaded_video_url || reel.original_video_url}
+                    className="w-full h-44 object-cover"
+                    preload="metadata"
+                    muted
+                  />
+                ) : (
+                  <div className="w-full h-44 bg-slate-800 flex items-center justify-center">
+                    <Play className="w-5 h-5 text-slate-600" />
+                  </div>
+                )}
+                <div className="p-2 bg-slate-800">
+                  <p className="text-white text-xs truncate">@{reel.owner_username}</p>
+                  <p className="text-slate-400 text-xs">{reel.video_duration_seconds}s</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {extra > 0 && (
+          <div
+            className="flex-shrink-0 w-32 h-44 bg-slate-100 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-200 transition-colors"
+            onClick={onExpand}
+          >
+            <p className="text-lg font-semibold text-slate-600">+{extra}</p>
+            <p className="text-xs text-slate-500">more results</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Preview Card Component for Carousel
 function ReelPreviewCard({ reel, isSelected, onToggleSelect }) {
   const videoUrl = reel.downloaded_video_url || reel.original_video_url;
@@ -87,9 +155,13 @@ function ReelPreviewCard({ reel, isSelected, onToggleSelect }) {
 }
 
 // Expanded Preview Modal
-function ExpandedPreviewModal({ isOpen, onClose, historyItem, results, onLoadResults }) {
+function ExpandedPreviewModal({ isOpen, onClose, historyItem, results, onLoadResults, token, backendUrl }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef(null);
+
+  const actionBar = HistoryActionBar({
+    token, backendUrl, reels: results || [], cacheKey: historyItem?.cache_key,
+  });
 
   if (!historyItem || !results) return null;
 
@@ -134,6 +206,11 @@ function ExpandedPreviewModal({ isOpen, onClose, historyItem, results, onLoadRes
           </div>
         </DialogHeader>
 
+        {/* Bulk action bar for upload/export from this cached search */}
+        <div className="pt-3 flex-shrink-0">
+          {actionBar.bar}
+        </div>
+
         <div className="flex flex-1 min-h-0 gap-4 py-4">
           {/* Main Video Preview */}
           <div className="w-80 flex-shrink-0 flex flex-col">
@@ -153,7 +230,10 @@ function ExpandedPreviewModal({ isOpen, onClose, historyItem, results, onLoadRes
             </div>
             {currentReel && (
               <div className="mt-3 p-3 bg-slate-50 rounded-lg">
-                <p className="font-medium text-slate-900">@{currentReel.owner_username}</p>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="font-medium text-slate-900">@{currentReel.owner_username}</p>
+                  <ReelStatusBadges reel={currentReel} />
+                </div>
                 <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -209,35 +289,48 @@ function ExpandedPreviewModal({ isOpen, onClose, historyItem, results, onLoadRes
               className="flex gap-3 overflow-x-auto pb-4 scroll-smooth"
               style={{ scrollbarWidth: 'thin' }}
             >
-              {results.map((reel, idx) => (
-                <div 
-                  key={reel.id || idx}
-                  data-preview-card
-                  className={`flex-shrink-0 w-36 cursor-pointer transition-all ${
-                    idx === currentIndex ? 'ring-2 ring-blue-500 scale-105' : 'opacity-70 hover:opacity-100'
-                  }`}
-                  onClick={() => setCurrentIndex(idx)}
-                >
-                  <div className="bg-slate-900 rounded-lg overflow-hidden">
-                    {(reel.downloaded_video_url || reel.original_video_url) ? (
-                      <video 
-                        src={reel.downloaded_video_url || reel.original_video_url}
-                        className="w-full h-48 object-cover"
-                        preload="metadata"
-                        muted
-                      />
-                    ) : (
-                      <div className="w-full h-48 bg-slate-800 flex items-center justify-center">
-                        <Play className="w-6 h-6 text-slate-600" />
+              {results.map((reel, idx) => {
+                const reelKey = reel.id || reel.reel_url;
+                const isSelected = actionBar.selectedIds.has(reelKey);
+                return (
+                  <div
+                    key={reelKey || idx}
+                    data-preview-card
+                    className={`flex-shrink-0 w-36 cursor-pointer transition-all relative ${
+                      idx === currentIndex ? 'ring-2 ring-blue-500 scale-105' : 'opacity-80 hover:opacity-100'
+                    }`}
+                    onClick={() => setCurrentIndex(idx)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => { e.stopPropagation(); actionBar.toggleOne(reelKey); }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded border-white shadow accent-blue-600"
+                      data-testid={`expanded-reel-checkbox-${idx}`}
+                    />
+                    <ReelStatusBadges reel={reel} compact />
+                    <div className="bg-slate-900 rounded-lg overflow-hidden">
+                      {(reel.downloaded_video_url || reel.original_video_url) ? (
+                        <video
+                          src={reel.downloaded_video_url || reel.original_video_url}
+                          className="w-full h-48 object-cover"
+                          preload="metadata"
+                          muted
+                        />
+                      ) : (
+                        <div className="w-full h-48 bg-slate-800 flex items-center justify-center">
+                          <Play className="w-6 h-6 text-slate-600" />
+                        </div>
+                      )}
+                      <div className="p-2 bg-slate-800">
+                        <p className="text-white text-xs truncate">@{reel.owner_username}</p>
+                        <p className="text-slate-400 text-xs">{reel.video_duration_seconds}s</p>
                       </div>
-                    )}
-                    <div className="p-2 bg-slate-800">
-                      <p className="text-white text-xs truncate">@{reel.owner_username}</p>
-                      <p className="text-slate-400 text-xs">{reel.video_duration_seconds}s</p>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -476,6 +569,8 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
         historyItem={expandedItem}
         results={expandedResults}
         onLoadResults={loadCachedSearch}
+        token={token}
+        backendUrl={backendUrl}
       />
 
       {/* Compare Modal */}
@@ -710,6 +805,16 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
                             <Database className="w-3 h-3" />
                             {item.results_count} results
                           </span>
+                          {item.uploaded_count > 0 && (
+                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] h-5 px-1.5" data-testid={`history-uploaded-count-${index}`}>
+                              <Check className="w-3 h-3 mr-1" />{item.uploaded_count} uploaded
+                            </Badge>
+                          )}
+                          {item.exported_count > 0 && (
+                            <Badge className="bg-sky-100 text-sky-700 border-sky-200 text-[10px] h-5 px-1.5" data-testid={`history-exported-count-${index}`}>
+                              {item.exported_count} exported
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -752,45 +857,13 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
 
                   {/* Inline Horizontal Carousel Preview */}
                   {inlinePreview[item.cache_key] && inlinePreview[item.cache_key].length > 0 && (
-                    <div className="border-t border-slate-100 pt-4">
-                      <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
-                        {inlinePreview[item.cache_key].slice(0, 15).map((reel, reelIdx) => (
-                          <div 
-                            key={reel.id || reelIdx} 
-                            className="flex-shrink-0 w-32 cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => openExpandedPreview(item)}
-                          >
-                            <div className="bg-slate-900 rounded-lg overflow-hidden">
-                              {(reel.downloaded_video_url || reel.original_video_url) ? (
-                                <video 
-                                  src={reel.downloaded_video_url || reel.original_video_url}
-                                  className="w-full h-44 object-cover"
-                                  preload="metadata"
-                                  muted
-                                />
-                              ) : (
-                                <div className="w-full h-44 bg-slate-800 flex items-center justify-center">
-                                  <Play className="w-5 h-5 text-slate-600" />
-                                </div>
-                              )}
-                              <div className="p-2 bg-slate-800">
-                                <p className="text-white text-xs truncate">@{reel.owner_username}</p>
-                                <p className="text-slate-400 text-xs">{reel.video_duration_seconds}s</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {inlinePreview[item.cache_key].length > 15 && (
-                          <div 
-                            className="flex-shrink-0 w-32 h-44 bg-slate-100 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-200 transition-colors"
-                            onClick={() => openExpandedPreview(item)}
-                          >
-                            <p className="text-lg font-semibold text-slate-600">+{inlinePreview[item.cache_key].length - 15}</p>
-                            <p className="text-xs text-slate-500">more results</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <InlinePreviewSection
+                      reels={inlinePreview[item.cache_key]}
+                      cacheKey={item.cache_key}
+                      token={token}
+                      backendUrl={backendUrl}
+                      onExpand={() => openExpandedPreview(item)}
+                    />
                   )}
                 </CardContent>
               </Card>

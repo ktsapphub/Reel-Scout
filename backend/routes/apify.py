@@ -4,7 +4,7 @@ from typing import Optional
 import httpx
 
 from config import (
-    logger, get_runtime_value,
+    logger, db, get_runtime_value,
     APIFY_ACTOR_ID, APIFY_REEL_SCRAPER_ID, APIFY_HASHTAG_ACTOR_ID,
     APIFY_CACHE_STORE_NAME
 )
@@ -147,9 +147,22 @@ async def get_search_history(user_email: str = Depends(get_current_user)):
                             record_data = record_response.json()
                             results = record_data.get("results", [])
                             search_term = _derive_search_term(results, search_type)
+                            # Tally uploaded / exported counts from saved_reels DB
+                            reel_urls = [r.get("reel_url") for r in results if r.get("reel_url")]
+                            uploaded_count = 0
+                            exported_count = 0
+                            if reel_urls:
+                                uploaded_count = await db.saved_reels.count_documents(
+                                    {"reel_url": {"$in": reel_urls}, "cloudinary_url": {"$exists": True, "$ne": ""}}
+                                )
+                                exported_count = await db.saved_reels.count_documents(
+                                    {"reel_url": {"$in": reel_urls}, "exported_at": {"$exists": True, "$ne": ""}}
+                                )
                             history.append({
                                 "cache_key": key, "search_type": search_type,
                                 "search_term": search_term, "results_count": len(results),
+                                "uploaded_count": uploaded_count,
+                                "exported_count": exported_count,
                                 "cached_at": record_data.get("cached_at", ""), "store_id": store_id,
                             })
                     except Exception as e:
@@ -190,10 +203,39 @@ async def get_cached_search(cache_key: str, user_email: str = Depends(get_curren
             if response.status_code == 200:
                 data = response.json()
                 results = data.get("results", [])
+
+                # Bulk lookup uploaded/exported metadata from saved_reels
+                reel_urls = [r.get("reel_url") for r in results if r.get("reel_url")]
+                meta_by_url = {}
+                if reel_urls:
+                    async for doc in db.saved_reels.find(
+                        {"reel_url": {"$in": reel_urls}},
+                        {"_id": 0, "reel_url": 1, "cloudinary_url": 1,
+                         "cloudinary_public_id": 1, "uploaded_at": 1, "uploaded_by": 1,
+                         "exported_at": 1, "exported_by": 1, "file_size_bytes": 1},
+                    ):
+                        meta_by_url[doc.get("reel_url")] = doc
+
                 reel_results = []
                 for item in results:
+                    # Inject DB metadata so the UI can show upload/export state
+                    url = item.get("reel_url")
+                    if url and url in meta_by_url:
+                        d = meta_by_url[url]
+                        item["cloudinary_url"] = item.get("cloudinary_url") or d.get("cloudinary_url", "")
+                        item["cloudinary_public_id"] = item.get("cloudinary_public_id") or d.get("cloudinary_public_id", "")
+                        item["uploaded_at"] = d.get("uploaded_at", "")
+                        item["exported_at"] = d.get("exported_at", "")
+                        item["file_size_bytes"] = d.get("file_size_bytes", 0)
                     try:
-                        reel_results.append(ReelResult(**item))
+                        # Forward extra fields via dict to keep response shape stable.
+                        reel = ReelResult(**{k: v for k, v in item.items() if k in ReelResult.model_fields})
+                        rd = reel.model_dump()
+                        # Re-attach annotation fields (not on model)
+                        for k in ("cloudinary_url", "cloudinary_public_id", "uploaded_at", "exported_at"):
+                            if item.get(k):
+                                rd[k] = item.get(k)
+                        reel_results.append(rd)
                     except Exception as e:
                         logger.error(f"Error converting cached result: {e}")
                 return {

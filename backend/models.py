@@ -16,6 +16,7 @@ class SearchRequest(BaseModel):
     search_type: str
     usernames: Optional[List[str]] = None
     urls: Optional[List[str]] = None
+    post_urls: Optional[List[str]] = None  # Individual reel/post URLs (max 10)
     hashtag: Optional[str] = None
     max_results: int = 25
     only_posts_newer_than: Optional[str] = None

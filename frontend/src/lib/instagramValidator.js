@@ -41,3 +41,20 @@ export function validateInstagramUrl(raw) {
   if (!m) return { state: "invalid", message: "Must be an instagram.com profile URL or a username" };
   return validateInstagramHandle(m[1]);
 }
+
+const POST_URL_RE = /^https?:\/\/(?:www\.)?instagram\.com\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)\/?(\?.*)?$/i;
+
+export function validateInstagramPostUrl(raw) {
+  if (!raw || !raw.trim()) return { state: "empty", message: "" };
+  const trimmed = raw.trim();
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return { state: "invalid", message: "Must be a full URL starting with https://" };
+  }
+  const m = trimmed.match(POST_URL_RE);
+  if (!m) {
+    return { state: "invalid", message: "Use a reel/post URL e.g. instagram.com/reel/XYZ/ or /p/XYZ/" };
+  }
+  return { state: "valid", message: `Valid Instagram ${m[1]} URL`, shortcode: m[2], kind: m[1].toLowerCase() };
+}
+
+export const MAX_POST_URLS = 10;

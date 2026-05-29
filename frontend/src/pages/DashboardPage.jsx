@@ -13,7 +13,7 @@ import axios from "axios";
 import { format } from "date-fns";
 
 import { safeGet, safeSet } from "@/lib/safeStorage";
-import { validateInstagramHandle, validateInstagramUrl } from "@/lib/instagramValidator";
+import { validateInstagramHandle, validateInstagramUrl, validateInstagramPostUrl, MAX_POST_URLS } from "@/lib/instagramValidator";
 import { UploadProgressModal } from "@/components/modals/UploadProgressModal";
 import { ExecutionStatusModal } from "@/components/modals/ExecutionStatusModal";
 import { ApifyStatusModal } from "@/components/modals/ApifyStatusModal";
@@ -39,6 +39,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const [searchType, setSearchType] = useState("username");
   const [usernames, setUsernames] = useState([""]);
   const [profileUrls, setProfileUrls] = useState([""]);
+  const [postUrls, setPostUrls] = useState([""]);
   const [hashtagInput, setHashtagInput] = useState("");
   const [maxResults, setMaxResults] = useState(25);
   const [includeTaggedPosts, setIncludeTaggedPosts] = useState(false);
@@ -103,6 +104,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     setMessage("");
     setUsernames([""]);
     setProfileUrls([""]);
+    setPostUrls([""]);
     setHashtagInput("");
     setMaxResults(25);
     setIncludeTaggedPosts(false);
@@ -283,6 +285,20 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
         return;
       }
       payload.urls = urls;
+    } else if (searchType === "post_url") {
+      const urls = postUrls.map(u => u.trim()).filter(u => u);
+      if (!urls.length) { toast.error("Please enter at least one reel/post URL"); return; }
+      if (urls.length > MAX_POST_URLS) {
+        toast.error(`Maximum ${MAX_POST_URLS} post URLs allowed`);
+        return;
+      }
+      const invalid = urls.filter((u) => validateInstagramPostUrl(u).state === "invalid");
+      if (invalid.length) {
+        toast.error(`Invalid Instagram reel/post URL: ${invalid.join(", ")}. Fix red-bordered fields before searching.`);
+        return;
+      }
+      payload.post_urls = urls;
+      payload.max_results = urls.length;  // direct lookup — one item per URL
     } else if (searchType === "hashtag") {
       const hashtag = hashtagInput.replace(/^#/, "").trim();
       if (!hashtag) { toast.error("Please enter a hashtag"); return; }
@@ -414,6 +430,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     searchType,
     usernames,
     profileUrls,
+    postUrls,
     hashtagInput,
     maxResults,
     includeTaggedPosts,
@@ -421,13 +438,14 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
       from: dateRange.from ? new Date(dateRange.from).toISOString() : null,
       to: dateRange.to ? new Date(dateRange.to).toISOString() : null,
     },
-  }), [searchType, usernames, profileUrls, hashtagInput, maxResults, includeTaggedPosts, dateRange]);
+  }), [searchType, usernames, profileUrls, postUrls, hashtagInput, maxResults, includeTaggedPosts, dateRange]);
 
   const applyPreset = useCallback((config) => {
     if (!config || typeof config !== "object") return;
     if (config.searchType) setSearchType(config.searchType);
     if (Array.isArray(config.usernames) && config.usernames.length) setUsernames(config.usernames);
     if (Array.isArray(config.profileUrls) && config.profileUrls.length) setProfileUrls(config.profileUrls);
+    if (Array.isArray(config.postUrls) && config.postUrls.length) setPostUrls(config.postUrls);
     if (typeof config.hashtagInput === "string") setHashtagInput(config.hashtagInput);
     if (typeof config.maxResults === "number") setMaxResults(config.maxResults);
     if (typeof config.includeTaggedPosts === "boolean") setIncludeTaggedPosts(config.includeTaggedPosts);
@@ -491,6 +509,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
             searchType={searchType} setSearchType={setSearchType}
             usernames={usernames} setUsernames={setUsernames}
             profileUrls={profileUrls} setProfileUrls={setProfileUrls}
+            postUrls={postUrls} setPostUrls={setPostUrls}
             hashtagInput={hashtagInput} setHashtagInput={setHashtagInput}
             maxResults={maxResults} setMaxResults={setMaxResults}
             includeTaggedPosts={includeTaggedPosts} setIncludeTaggedPosts={setIncludeTaggedPosts}

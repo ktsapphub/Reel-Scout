@@ -69,6 +69,14 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.7 — 2026-05-29) Post URL direct lookup (4th search mode)**:
+  - **New search type `"post_url"`** in `SearchRequest` (backend `models.py`) — accepts up to 10 direct reel/post URLs.
+  - **Backend `_build_post_url_input` (`routes/reels.py`)** — uses `apify~instagram-reel-scraper` actor with `directUrls` payload; cache-keyed by sorted URL set; auto-routed to fast-sync path. Server-side normalization + regex validation; structured error response on bad inputs.
+  - **Frontend new "Post URL" tab** (`SearchForm.jsx`) — Film icon, URL counter (n/10), inline validation indicators (green ✓ / red ⚠), Add URL & Clear All controls, emerald callout explaining direct-lookup behavior.
+  - **New `validateInstagramPostUrl` + `MAX_POST_URLS`** in `instagramValidator.js` — regex matches `/p/`, `/reel/`, `/reels/`, `/tv/` paths.
+  - Date Range picker hidden on Post URL tab (date filtering meaningless for exact-URL lookups).
+  - `payload.max_results` auto-set to URL count for Post URL searches; preset capture/apply + Restart button include `postUrls` state.
+  - Tested: backend validations (bad URLs / >10 / empty) all return correct structured errors; frontend tab renders with counter, validators, and callouts.
 - [x] **(v2.6.6 — 2026-05-29) Instagram handle validation + date range fixes**:
   - **New `instagramValidator.js` + `HandleValidityIndicator.jsx`** — every Username/Profile URL input shows a green ✓ checkmark when the format is valid, red ⚠ icon when invalid (with tooltip explaining why). Input border colors match. Rules: 1–30 chars, `[A-Za-z0-9._]` only, no consecutive periods, no leading/trailing periods, rejects Instagram reserved keywords (`p`, `reel`, `stories`, etc.).
   - **Search submission blocked** if any handle is invalid — toast names the offending field.

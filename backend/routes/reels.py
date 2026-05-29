@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from config import (
     logger, get_runtime_value,
-    APIFY_ACTOR_ID, APIFY_HASHTAG_ACTOR_ID
+    APIFY_ACTOR_ID, APIFY_REEL_SCRAPER_ID, APIFY_HASHTAG_ACTOR_ID
 )
 from models import (
     SearchRequest, ReelResult,
@@ -105,6 +105,46 @@ def _build_hashtag_input(request: SearchRequest) -> tuple:
     return APIFY_HASHTAG_ACTOR_ID, apify_input, cache_key
 
 
+MAX_POST_URLS = 10
+POST_URL_RE = re.compile(r"https?://(?:www\.)?instagram\.com/(?:p|reel|reels|tv)/[A-Za-z0-9_-]+/?", re.IGNORECASE)
+
+
+def _normalize_post_url(url: str) -> Optional[str]:
+    """Return a canonical Instagram post URL, or None if invalid."""
+    if not url:
+        return None
+    url = url.strip().split("?")[0].rstrip("/")
+    m = POST_URL_RE.match(url + "/")
+    if not m:
+        return None
+    return m.group(0).rstrip("/") + "/"
+
+
+def _build_post_url_input(request: SearchRequest) -> tuple:
+    """Build Apify input for individual post/reel URL searches.
+
+    Uses the Instagram Reel Scraper actor with ``directUrls`` — one round-trip
+    per batch (no per-URL run). Supports up to MAX_POST_URLS URLs at a time.
+    """
+    if not request.post_urls or len(request.post_urls) == 0:
+        raise HTTPException(status_code=400, detail="At least one post URL required")
+    if len(request.post_urls) > MAX_POST_URLS:
+        raise HTTPException(status_code=400, detail=f"Maximum {MAX_POST_URLS} post URLs per search")
+    normalized = [_normalize_post_url(u) for u in request.post_urls]
+    valid = [u for u in normalized if u]
+    if not valid:
+        return None, None, None  # caller will produce structured error
+    cache_key = generate_cache_key("post_url", post_urls=valid)
+    apify_input = {
+        "directUrls": valid,
+        "resultsType": "posts",
+        "resultsLimit": len(valid),
+        "addParentData": False,
+    }
+    logger.info(f"Post URL search: {len(valid)} URLs")
+    return APIFY_REEL_SCRAPER_ID, apify_input, cache_key
+
+
 def _make_error_response(exc: Exception) -> StartSearchResponse:
     """Convert an httpx exception into a StartSearchResponse."""
     if isinstance(exc, httpx.TimeoutException):
@@ -183,6 +223,7 @@ def optimize_cloudinary_url(url: str) -> str:
 SEARCH_INPUT_BUILDERS = {
     "username": _build_username_input,
     "url": _build_url_input,
+    "post_url": _build_post_url_input,
     "hashtag": _build_hashtag_input,
 }
 
@@ -206,6 +247,20 @@ def _url_parse_error_response(urls: list) -> StartSearchResponse:
             error_code="URL_PARSE_ERROR",
             possible_cause="The URLs provided are not valid Instagram profile URLs",
             suggested_solution="Enter URLs in format: https://www.instagram.com/username",
+            technical_details=f"Provided URLs: {urls}",
+        ),
+    )
+
+
+def _post_url_parse_error_response(urls: list) -> StartSearchResponse:
+    return StartSearchResponse(
+        run_id="", status="ERROR",
+        message="Could not parse any valid Instagram post/reel URLs",
+        error=ExecutionError(
+            error_type="INVALID_INPUT", error_message="No valid Instagram post URLs found",
+            error_code="POST_URL_PARSE_ERROR",
+            possible_cause="URLs must be reel or post links",
+            suggested_solution="Enter URLs like https://www.instagram.com/reel/XYZ/ or /p/XYZ/",
             technical_details=f"Provided URLs: {urls}",
         ),
     )
@@ -261,6 +316,9 @@ def _should_use_sync_path(request: SearchRequest) -> bool:
         return bool(request.usernames) and len(request.usernames) == 1
     if request.search_type == "url":
         return bool(request.urls) and len(request.urls) == 1
+    if request.search_type == "post_url":
+        # Post URL searches are always direct lookups, perfect for sync path.
+        return bool(request.post_urls) and len(request.post_urls) <= SYNC_PATH_MAX_RESULTS
     if request.search_type == "hashtag":
         return bool(request.hashtag)
     return False
@@ -350,6 +408,8 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
     actor_id, apify_input, cache_key = _resolve_search_input(request)
     if request.search_type == "url" and actor_id is None:
         return _url_parse_error_response(request.urls)
+    if request.search_type == "post_url" and actor_id is None:
+        return _post_url_parse_error_response(request.post_urls)
 
     cached = await _maybe_return_cached(cache_key, request, actor_id, user_email)
     if cached:

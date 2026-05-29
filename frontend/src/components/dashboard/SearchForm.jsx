@@ -10,13 +10,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, User, Hash, Link as LinkIcon, Play, Plus, X, Square,
-  HelpCircle, FileUp, FileDown, DollarSign, CalendarIcon, RotateCcw,
+  HelpCircle, FileUp, FileDown, DollarSign, CalendarIcon, RotateCcw, Film,
 } from "lucide-react";
 import { format } from "date-fns";
 import { SEARCH_HELP } from "@/components/HelpPanel";
 import { SearchProgress } from "./SearchProgress";
 import { HandleValidityIndicator } from "./HandleValidityIndicator";
-import { validateInstagramHandle, validateInstagramUrl } from "@/lib/instagramValidator";
+import { validateInstagramHandle, validateInstagramUrl, validateInstagramPostUrl, MAX_POST_URLS } from "@/lib/instagramValidator";
 
 const MAX_RESULTS_OPTIONS = [5, 10, 25, 50, 100, 250];
 const MAX_USERNAME_FIELDS = 10;
@@ -26,6 +26,7 @@ export function SearchForm({
   searchType, setSearchType,
   usernames, setUsernames,
   profileUrls, setProfileUrls,
+  postUrls, setPostUrls,
   hashtagInput, setHashtagInput,
   maxResults, setMaxResults,
   includeTaggedPosts, setIncludeTaggedPosts,
@@ -47,6 +48,10 @@ export function SearchForm({
   const removeProfileUrlField = (i) => { if (profileUrls.length > 1) setProfileUrls(profileUrls.filter((_, x) => x !== i)); };
   const updateProfileUrl = (i, v) => { const n = [...profileUrls]; n[i] = v; setProfileUrls(n); };
 
+  const addPostUrlField = () => { if (postUrls.length < MAX_POST_URLS) setPostUrls([...postUrls, ""]); };
+  const removePostUrlField = (i) => { if (postUrls.length > 1) setPostUrls(postUrls.filter((_, x) => x !== i)); };
+  const updatePostUrl = (i, v) => { const n = [...postUrls]; n[i] = v; setPostUrls(n); };
+
   return (
     <Card className="border-slate-200 shadow-sm mb-8 animate-fade-in">
       <CardHeader className="pb-4">
@@ -63,6 +68,7 @@ export function SearchForm({
             {[
               { value: "username", icon: User, label: "Username", help: SEARCH_HELP.username.tooltip },
               { value: "url", icon: LinkIcon, label: "Profile URL", help: SEARCH_HELP.url.tooltip },
+              { value: "post_url", icon: Film, label: "Post URL", help: `Look up specific reel or post URLs (up to ${MAX_POST_URLS}). Fast & exact — perfect for finding details on links you already have.` },
               { value: "hashtag", icon: Hash, label: "Hashtag", help: SEARCH_HELP.hashtag.tooltip },
             ].map(tab => (
               <Tooltip key={tab.value}><TooltipTrigger asChild>
@@ -196,6 +202,60 @@ export function SearchForm({
             </div>
           </TabsContent>
 
+          <TabsContent value="post_url" className="mt-4 space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-slate-700 font-medium">Reel / Post URLs</Label>
+                <span className="text-xs text-slate-400">{postUrls.length}/{MAX_POST_URLS} URLs</span>
+              </div>
+              <p className="text-sm text-slate-500 mb-3">
+                Paste up to {MAX_POST_URLS} direct reel or post URLs. Each one is fetched individually (no profile scrape) — the fastest, cheapest way to grab specific content.
+              </p>
+              <div className="space-y-2">
+                {postUrls.map((url, index) => {
+                  const v = validateInstagramPostUrl(url);
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Film className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                          placeholder="https://www.instagram.com/reel/CxYzABC123/"
+                          value={url}
+                          onChange={(e) => updatePostUrl(index, e.target.value)}
+                          className={`h-10 pl-10 pr-9 border-slate-200 focus:border-blue-500 text-sm font-mono ${
+                            v.state === "invalid" ? "border-red-300 focus:border-red-500" :
+                            v.state === "valid" ? "border-emerald-300 focus:border-emerald-500" : ""
+                          }`}
+                          data-testid={`post-url-input-${index}`}
+                        />
+                        <HandleValidityIndicator result={v} testId={`post-url-validity-${index}`} />
+                      </div>
+                      {postUrls.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removePostUrlField(index)} className="h-10 w-10 text-slate-400 hover:text-red-500" data-testid={`remove-post-url-${index}`}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                {postUrls.length < MAX_POST_URLS && (
+                  <Button type="button" variant="outline" size="sm" onClick={addPostUrlField} className="border-dashed border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600" data-testid="add-post-url-btn">
+                    <Plus className="w-4 h-4 mr-1" />Add URL
+                  </Button>
+                )}
+                {postUrls.length > 1 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setPostUrls([""])} className="text-slate-500 hover:text-red-600"><X className="w-3 h-3 mr-1" />Clear All</Button>
+                )}
+              </div>
+              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                <p className="text-xs font-semibold text-emerald-700 mb-1">Direct lookup — best for known content</p>
+                <p className="text-xs text-emerald-600">Each URL = 1 Apify dataset item. {MAX_POST_URLS} URLs returns in ~5–15 seconds via the fast-sync path. No date filtering needed (you already chose the exact post).</p>
+              </div>
+            </div>
+          </TabsContent>
+
           <TabsContent value="hashtag" className="mt-4 space-y-4">
             <div>
               <Label className="text-slate-700 font-medium">Hashtag</Label>
@@ -208,8 +268,8 @@ export function SearchForm({
           </TabsContent>
         </Tabs>
 
-        {/* Date Range Filter — not applicable for Profile URL searches */}
-        {searchType !== "url" && (
+        {/* Date Range Filter — not applicable for Profile URL or direct Post URL lookups */}
+        {searchType !== "url" && searchType !== "post_url" && (
           <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">
             <div>
               <Label className="text-slate-700 font-medium text-sm mb-2 block">
@@ -276,7 +336,7 @@ export function SearchForm({
           <div className="flex items-center gap-2">
             {!searching ? (
               <>
-                {(hasResults || usernames.some((u) => u) || profileUrls.some((u) => u) || hashtagInput) && (
+                {(hasResults || usernames.some((u) => u) || profileUrls.some((u) => u) || postUrls.some((u) => u) || hashtagInput) && (
                   <Button
                     onClick={onRestart}
                     variant="outline"

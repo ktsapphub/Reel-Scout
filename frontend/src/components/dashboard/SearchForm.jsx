@@ -64,7 +64,7 @@ export function SearchForm({
       </CardHeader>
       <CardContent className="space-y-6">
         <Tabs value={searchType} onValueChange={setSearchType}>
-          <TabsList className="bg-slate-100 p-1">
+          <TabsList className="bg-slate-100 p-1.5 h-auto rounded-xl gap-1">
             {[
               { value: "username", icon: User, label: "Username", help: SEARCH_HELP.username.tooltip },
               { value: "url", icon: LinkIcon, label: "Profile URL", help: SEARCH_HELP.url.tooltip },
@@ -72,12 +72,45 @@ export function SearchForm({
               { value: "hashtag", icon: Hash, label: "Hashtag", help: SEARCH_HELP.hashtag.tooltip },
             ].map(tab => (
               <Tooltip key={tab.value}><TooltipTrigger asChild>
-                <TabsTrigger value={tab.value} className="data-[state=active]:bg-white data-[state=active]:text-blue-600" data-testid={`tab-${tab.value}`}>
-                  <tab.icon className="w-4 h-4 mr-2" />{tab.label}<HelpCircle className="w-3 h-3 ml-1 text-slate-400" />
+                <TabsTrigger
+                  value={tab.value}
+                  className="relative data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:font-semibold data-[state=active]:ring-2 data-[state=active]:ring-blue-400 data-[state=active]:ring-offset-1 data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-white/60 transition-all py-2 px-4 rounded-lg"
+                  data-testid={`tab-${tab.value}`}
+                >
+                  <tab.icon className="w-4 h-4 mr-2" />{tab.label}<HelpCircle className="w-3 h-3 ml-1 opacity-70" />
                 </TabsTrigger>
               </TooltipTrigger><TooltipContent><p className="max-w-xs">{tab.help}</p></TooltipContent></Tooltip>
             ))}
           </TabsList>
+
+          {/* Active-method indicator — leaves no doubt what mode is in use */}
+          {(() => {
+            const meta = {
+              username: { icon: User, label: "Username", desc: "Pulling reels from one or more @handles" },
+              url: { icon: LinkIcon, label: "Profile URL", desc: "Pulling reels from full instagram.com/<user> URLs" },
+              post_url: { icon: Film, label: "Post URL", desc: `Looking up specific reel/post URLs (max ${MAX_POST_URLS})` },
+              hashtag: { icon: Hash, label: "Hashtag", desc: "Searching reels tagged with a hashtag" },
+            }[searchType] || {};
+            const ActiveIcon = meta.icon || User;
+            return (
+              <div
+                className="mt-3 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100"
+                data-testid="active-search-method-banner"
+              >
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-600 text-white shrink-0">
+                  <ActiveIcon className="w-4 h-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold leading-tight">
+                    Currently searching by
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900 leading-tight">
+                    {meta.label} <span className="font-normal text-slate-500">· {meta.desc}</span>
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           <TabsContent value="username" className="mt-4 space-y-4">
             <div>

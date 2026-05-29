@@ -92,6 +92,24 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     setUploadedReelIds(new Set());
   }, []);
 
+  const handleRestart = useCallback(() => {
+    // Clear all search state + reset form to defaults for a fresh search
+    setResults([]);
+    setSelectedIds(new Set());
+    setUploadedReelIds(new Set());
+    setExpandedTranscripts(new Set());
+    setCurrentPage(1);
+    setMessage("");
+    setUsernames([""]);
+    setProfileUrls([""]);
+    setHashtagInput("");
+    setMaxResults(25);
+    setIncludeTaggedPosts(false);
+    setDateRange({ from: undefined, to: undefined });
+    toast.success("Cleared — ready for a new search");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   const {
     searching, progress, estimatedTime, itemsProcessed,
     startPolling, stopSearch, resetSearchingFlag,
@@ -463,6 +481,8 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
             includeTaggedPosts={includeTaggedPosts} setIncludeTaggedPosts={setIncludeTaggedPosts}
             dateRange={dateRange} setDateRange={setDateRange}
             onSearch={handleSearch} onStop={handleStopSearch}
+            onRestart={handleRestart}
+            hasResults={results.length > 0}
             onCsvUpload={handleCsvUpload} onDownloadSampleCsv={downloadSampleCsv}
             searching={searching} progress={progress}
             estimatedTime={estimatedTime} itemsProcessed={itemsProcessed}

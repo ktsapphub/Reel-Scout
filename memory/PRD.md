@@ -69,6 +69,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.5 — 2026-05-29) Restart button next to Run Search**:
+  - **New "Restart" button** in `SearchForm.jsx` appears immediately left of the "Run Search" button when there's anything to clear (existing results OR any form field filled).
+  - **`handleRestart` in `DashboardPage.jsx`** clears: results, selectedIds, uploadedReelIds, expandedTranscripts, currentPage, message, usernames, profileUrls, hashtagInput, maxResults (back to 25), includeTaggedPosts, dateRange.
+  - Toast confirmation "Cleared — ready for a new search" + smooth scroll to top.
+  - Hides automatically once the form is empty.
 - [x] **(v2.6.4 — 2026-05-29) History page · upload + export from previously pulled searches**:
   - **New `ReelStatusBadges.jsx`** — overlay green ☁ Cloudinary + blue 📄 Exported badges on reel thumbnails so users can see at a glance which reels were already uploaded or downloaded.
   - **New `HistoryActionBar.jsx`** — bulk-action bar with "Select all", "Select not-yet-uploaded", reel counter, and two CTAs: green "Upload to Cloudinary" + blue "Export CSV". Calls the existing `/api/reels/upload` and `/api/reels/export` endpoints with the selected reels.

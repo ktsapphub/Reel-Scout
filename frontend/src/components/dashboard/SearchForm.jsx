@@ -10,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, User, Hash, Link as LinkIcon, Play, Plus, X, Square,
-  HelpCircle, FileUp, FileDown, DollarSign, CalendarIcon,
+  HelpCircle, FileUp, FileDown, DollarSign, CalendarIcon, RotateCcw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { SEARCH_HELP } from "@/components/HelpPanel";
@@ -29,7 +29,7 @@ export function SearchForm({
   includeTaggedPosts, setIncludeTaggedPosts,
   dateRange, setDateRange,
   // helpers
-  onSearch, onStop, onCsvUpload, onDownloadSampleCsv,
+  onSearch, onStop, onRestart, hasResults, onCsvUpload, onDownloadSampleCsv,
   // polling state
   searching, progress, estimatedTime, itemsProcessed,
   // presets
@@ -243,9 +243,22 @@ export function SearchForm({
           </div>
           <div className="flex items-center gap-2">
             {!searching ? (
-              <Button onClick={onSearch} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full" data-testid="run-search-btn">
-                <Play className="w-4 h-4 mr-2" />Run Search
-              </Button>
+              <>
+                {(hasResults || usernames.some((u) => u) || profileUrls.some((u) => u) || hashtagInput) && (
+                  <Button
+                    onClick={onRestart}
+                    variant="outline"
+                    className="h-10 px-4 border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium rounded-full"
+                    data-testid="restart-search-btn"
+                    title="Clear results and reset form for a new search"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />Restart
+                  </Button>
+                )}
+                <Button onClick={onSearch} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full" data-testid="run-search-btn">
+                  <Play className="w-4 h-4 mr-2" />Run Search
+                </Button>
+              </>
             ) : (
               <Button onClick={onStop} variant="destructive" className="h-10 px-6 font-medium rounded-full" data-testid="stop-search-btn">
                 <Square className="w-4 h-4 mr-2" />Stop Search

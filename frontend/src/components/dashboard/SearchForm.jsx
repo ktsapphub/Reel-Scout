@@ -15,6 +15,8 @@ import {
 import { format } from "date-fns";
 import { SEARCH_HELP } from "@/components/HelpPanel";
 import { SearchProgress } from "./SearchProgress";
+import { HandleValidityIndicator } from "./HandleValidityIndicator";
+import { validateInstagramHandle, validateInstagramUrl } from "@/lib/instagramValidator";
 
 const MAX_RESULTS_OPTIONS = [5, 10, 25, 50, 100, 250];
 const MAX_USERNAME_FIELDS = 10;
@@ -93,19 +95,32 @@ export function SearchForm({
                 </div>
               </div>
               <div className="space-y-2">
-                {usernames.map((username, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
-                      <Input placeholder="user_name" value={username} onChange={(e) => updateUsername(index, e.target.value)} className="h-10 pl-8 border-slate-200 focus:border-blue-500" data-testid={`username-input-${index}`} />
+                {usernames.map((username, index) => {
+                  const v = validateInstagramHandle(username);
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
+                        <Input
+                          placeholder="user_name"
+                          value={username}
+                          onChange={(e) => updateUsername(index, e.target.value)}
+                          className={`h-10 pl-8 pr-9 border-slate-200 focus:border-blue-500 ${
+                            v.state === "invalid" ? "border-red-300 focus:border-red-500" :
+                            v.state === "valid" ? "border-emerald-300 focus:border-emerald-500" : ""
+                          }`}
+                          data-testid={`username-input-${index}`}
+                        />
+                        <HandleValidityIndicator result={v} testId={`username-validity-${index}`} />
+                      </div>
+                      {usernames.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeUsernameField(index)} className="h-10 w-10 text-slate-400 hover:text-red-500" data-testid={`remove-username-${index}`}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
-                    {usernames.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeUsernameField(index)} className="h-10 w-10 text-slate-400 hover:text-red-500" data-testid={`remove-username-${index}`}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="flex items-center gap-2 mt-2">
                 {usernames.length < MAX_USERNAME_FIELDS && (
@@ -137,19 +152,32 @@ export function SearchForm({
               </div>
               <p className="text-sm text-slate-500 mb-3">Enter a full URL or just the username — both work</p>
               <div className="space-y-2">
-                {profileUrls.map((url, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <Input placeholder="natgeo  or  https://instagram.com/natgeo" value={url} onChange={(e) => updateProfileUrl(index, e.target.value)} className="h-10 pl-10 border-slate-200 focus:border-blue-500 text-sm" data-testid={`url-input-${index}`} />
+                {profileUrls.map((url, index) => {
+                  const v = validateInstagramUrl(url);
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                          placeholder="natgeo  or  https://instagram.com/natgeo"
+                          value={url}
+                          onChange={(e) => updateProfileUrl(index, e.target.value)}
+                          className={`h-10 pl-10 pr-9 border-slate-200 focus:border-blue-500 text-sm ${
+                            v.state === "invalid" ? "border-red-300 focus:border-red-500" :
+                            v.state === "valid" ? "border-emerald-300 focus:border-emerald-500" : ""
+                          }`}
+                          data-testid={`url-input-${index}`}
+                        />
+                        <HandleValidityIndicator result={v} testId={`url-validity-${index}`} />
+                      </div>
+                      {profileUrls.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeProfileUrlField(index)} className="h-10 w-10 text-slate-400 hover:text-red-500" data-testid={`remove-url-${index}`}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
-                    {profileUrls.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeProfileUrlField(index)} className="h-10 w-10 text-slate-400 hover:text-red-500" data-testid={`remove-url-${index}`}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="flex items-center gap-2 mt-2">
                 {profileUrls.length < MAX_USERNAME_FIELDS && (
@@ -180,39 +208,43 @@ export function SearchForm({
           </TabsContent>
         </Tabs>
 
-        {/* Date Range Filter */}
-        <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">
-          <div>
-            <Label className="text-slate-700 font-medium text-sm mb-2 block">Date Range</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 justify-start text-left font-normal border-slate-200 min-w-[260px]" data-testid="date-range-trigger">
-                  <CalendarIcon className="w-4 h-4 mr-2 text-slate-400" />
-                  {dateRange.from ? (
-                    dateRange.to ? (
-                      <span className="text-slate-900">{format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")}</span>
+        {/* Date Range Filter — not applicable for Profile URL searches */}
+        {searchType !== "url" && (
+          <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">
+            <div>
+              <Label className="text-slate-700 font-medium text-sm mb-2 block">
+                Date Range <span className="text-slate-400 font-normal">· filters by post date</span>
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-10 justify-start text-left font-normal border-slate-200 min-w-[260px]" data-testid="date-range-trigger">
+                    <CalendarIcon className="w-4 h-4 mr-2 text-slate-400" />
+                    {dateRange.from ? (
+                      dateRange.to ? (
+                        <span className="text-slate-900">{format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")}</span>
+                      ) : (
+                        <span className="text-slate-900">From {format(dateRange.from, "MMM d, yyyy")}</span>
+                      )
                     ) : (
-                      <span className="text-slate-900">From {format(dateRange.from, "MMM d, yyyy")}</span>
-                    )
-                  ) : (
-                    <span className="text-slate-400">Pick a date range (optional)</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} disabled={{ after: new Date() }} data-testid="date-range-calendar" />
-                <div className="flex items-center justify-between p-3 border-t border-slate-200">
-                  <p className="text-xs text-slate-500">Filters reels by post date</p>
-                  {(dateRange.from || dateRange.to) && (
-                    <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} className="text-xs text-slate-500 hover:text-red-600 h-7" data-testid="clear-date-range-btn">
-                      <X className="w-3 h-3 mr-1" />Clear
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+                      <span className="text-slate-400">Pick a date range (optional)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} disabled={{ after: new Date() }} data-testid="date-range-calendar" />
+                  <div className="flex items-center justify-between p-3 border-t border-slate-200">
+                    <p className="text-xs text-slate-500">Filters reels by post date</p>
+                    {(dateRange.from || dateRange.to) && (
+                      <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} className="text-xs text-slate-500 hover:text-red-600 h-7" data-testid="clear-date-range-btn">
+                        <X className="w-3 h-3 mr-1" />Clear
+                      </Button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Controls */}
         <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">

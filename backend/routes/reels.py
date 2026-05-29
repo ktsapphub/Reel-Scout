@@ -274,7 +274,11 @@ async def _try_sync_run(
     raw_items = await run_actor_sync(actor_id, apify_input, api_token, timeout=SYNC_PATH_TIMEOUT_SEC)
     if raw_items is None:
         return None
-    results = await process_apify_results(raw_items, user_email, request.search_type)
+    results = await process_apify_results(
+        raw_items, user_email, request.search_type,
+        only_posts_newer_than=request.only_posts_newer_than,
+        only_posts_older_than=request.only_posts_older_than,
+    )
     if cache_key and results:
         await save_to_cache(cache_key, results)
     sync_run_id = f"sync_{cache_key or 'run'}_{datetime.now(timezone.utc).timestamp()}"
@@ -377,6 +381,8 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
                 "user_email": user_email, "started_at": datetime.now(timezone.utc),
                 "max_results": request.max_results, "search_type": request.search_type,
                 "actor_id": actor_id, "cache_key": cache_key, "api_token": api_token,
+                "only_posts_newer_than": request.only_posts_newer_than,
+                "only_posts_older_than": request.only_posts_older_than,
             }
             logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")
             await log_audit("search_started", user_email, {
@@ -426,7 +432,11 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={api_token}"
                 )
                 dataset_response.raise_for_status()
-                results = await process_apify_results(dataset_response.json(), user_email, search_type)
+                results = await process_apify_results(
+                    dataset_response.json(), user_email, search_type,
+                    only_posts_newer_than=run_info.get("only_posts_newer_than"),
+                    only_posts_older_than=run_info.get("only_posts_older_than"),
+                )
                 if cache_key and results:
                     await save_to_cache(cache_key, results)
                 active_runs.pop(run_id, None)
@@ -475,7 +485,11 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
                         items = dr.json()
                         items_processed = len(items)
                         if items:
-                            partial_results = await process_apify_results(items, user_email, search_type)
+                            partial_results = await process_apify_results(
+                                items, user_email, search_type,
+                                only_posts_newer_than=run_info.get("only_posts_newer_than"),
+                                only_posts_older_than=run_info.get("only_posts_older_than"),
+                            )
             except Exception as e:
                 logger.warning(f"Could not retrieve partial results: {e}")
 

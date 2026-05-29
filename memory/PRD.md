@@ -69,6 +69,12 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.6 — 2026-05-29) Instagram handle validation + date range fixes**:
+  - **New `instagramValidator.js` + `HandleValidityIndicator.jsx`** — every Username/Profile URL input shows a green ✓ checkmark when the format is valid, red ⚠ icon when invalid (with tooltip explaining why). Input border colors match. Rules: 1–30 chars, `[A-Za-z0-9._]` only, no consecutive periods, no leading/trailing periods, rejects Instagram reserved keywords (`p`, `reel`, `stories`, etc.).
+  - **Search submission blocked** if any handle is invalid — toast names the offending field.
+  - **Date Range picker hidden** on Profile URL tab — only shows for Username + Hashtag searches (matches the underlying actor's behavior).
+  - **Backend post-filter by timestamp** in `process_apify_results` — `only_posts_newer_than`/`only_posts_older_than` are now enforced server-side regardless of whether the Apify actor honors them. Date filters threaded through `active_runs` for async path.
+  - URL extraction in validator handles both raw usernames and `https://instagram.com/{user}` formats.
 - [x] **(v2.6.5 — 2026-05-29) Restart button next to Run Search**:
   - **New "Restart" button** in `SearchForm.jsx` appears immediately left of the "Run Search" button when there's anything to clear (existing results OR any form field filled).
   - **`handleRestart` in `DashboardPage.jsx`** clears: results, selectedIds, uploadedReelIds, expandedTranscripts, currentPage, message, usernames, profileUrls, hashtagInput, maxResults (back to 25), includeTaggedPosts, dateRange.

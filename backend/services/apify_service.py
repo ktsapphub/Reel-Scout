@@ -227,16 +227,33 @@ def _build_reel(item: Dict, video_url: Optional[str], duration: float, tagged_us
 
 # --- Main processor ---
 
-async def process_apify_results(items: List[Dict], user_email: str, search_type: str = "unknown") -> List[ReelResult]:
-    """Process Apify results into ReelResult objects — ONLY REELS."""
+async def process_apify_results(
+    items: List[Dict],
+    user_email: str,
+    search_type: str = "unknown",
+    only_posts_newer_than: Optional[str] = None,
+    only_posts_older_than: Optional[str] = None,
+) -> List[ReelResult]:
+    """Process Apify results into ReelResult objects — ONLY REELS.
+
+    ``only_posts_newer_than`` / ``only_posts_older_than`` (YYYY-MM-DD) are applied
+    as a server-side post-filter on each item's timestamp. We do this in addition
+    to passing the flags to Apify because the Reel Scraper actor sometimes ignores
+    ``onlyPostsOlderThan``.
+    """
     results = []
     seen_ids: set = set()
-    skipped = {"image": 0, "no_video": 0, "no_url": 0}
+    skipped = {"image": 0, "no_video": 0, "no_url": 0, "out_of_range": 0}
 
     saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
     saved_urls = {r["reel_url"] for r in saved_reels}
 
-    logger.info(f"Processing {len(items)} items from Apify (search_type: {search_type})")
+    # Parse date filters once
+    newer_than_dt = _parse_date_boundary(only_posts_newer_than)
+    older_than_dt = _parse_date_boundary(only_posts_older_than)
+
+    logger.info(f"Processing {len(items)} items from Apify (search_type: {search_type}, "
+                f"newer_than={only_posts_newer_than}, older_than={only_posts_older_than})")
     if items:
         first = items[0]
         logger.info(f"Sample keys: {list(first.keys())}, type={first.get('type')}, isVideo={first.get('isVideo')}")
@@ -270,6 +287,17 @@ async def process_apify_results(items: List[Dict], user_email: str, search_type:
                 continue
             seen_ids.add(reel_id)
 
+            # Server-side date-range filter — Apify actor inconsistently honors it
+            if newer_than_dt or older_than_dt:
+                post_dt = _parse_post_timestamp(item)
+                if post_dt is not None:
+                    if newer_than_dt and post_dt < newer_than_dt:
+                        skipped["out_of_range"] += 1
+                        continue
+                    if older_than_dt and post_dt > older_than_dt:
+                        skipped["out_of_range"] += 1
+                        continue
+
             tagged_users = _extract_tagged_users(item)
             music = _extract_music_info(item)
             results.append(_build_reel(item, video_url, duration, tagged_users, music))
@@ -280,3 +308,41 @@ async def process_apify_results(items: List[Dict], user_email: str, search_type:
 
     logger.info(f"Processed {len(results)} reels from {len(items)} items (skipped: {skipped})")
     return results
+
+
+def _parse_date_boundary(value: Optional[str]):
+    """Parse a YYYY-MM-DD string into a tz-aware datetime, or None."""
+    if not value:
+        return None
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        return _dt.strptime(value, "%Y-%m-%d").replace(tzinfo=_tz.utc)
+    except Exception:
+        return None
+
+
+def _parse_post_timestamp(item: Dict):
+    """Extract a timezone-aware datetime from an Apify item's timestamp field."""
+    from datetime import datetime as _dt, timezone as _tz
+    raw = item.get("timestamp") or item.get("taken_at") or item.get("takenAt") or ""
+    if not raw:
+        return None
+    try:
+        if isinstance(raw, (int, float)):
+            return _dt.fromtimestamp(float(raw), tz=_tz.utc)
+        s = str(raw).replace("Z", "+00:00")
+        # Try ISO-8601 first
+        try:
+            parsed = _dt.fromisoformat(s)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=_tz.utc)
+            return parsed
+        except Exception:
+            pass
+        # Fallback: epoch as string
+        try:
+            return _dt.fromtimestamp(float(s), tz=_tz.utc)
+        except Exception:
+            return None
+    except Exception:
+        return None

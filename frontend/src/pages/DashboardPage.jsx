@@ -13,6 +13,7 @@ import axios from "axios";
 import { format } from "date-fns";
 
 import { safeGet, safeSet } from "@/lib/safeStorage";
+import { validateInstagramHandle, validateInstagramUrl } from "@/lib/instagramValidator";
 import { UploadProgressModal } from "@/components/modals/UploadProgressModal";
 import { ExecutionStatusModal } from "@/components/modals/ExecutionStatusModal";
 import { ApifyStatusModal } from "@/components/modals/ApifyStatusModal";
@@ -256,17 +257,31 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
   const handleSearch = async () => {
     const payload = { search_type: searchType, max_results: maxResults };
 
-    if (dateRange.from) payload.only_posts_newer_than = format(dateRange.from, "yyyy-MM-dd");
-    if (dateRange.to) payload.only_posts_older_than = format(dateRange.to, "yyyy-MM-dd");
+    // Date range applies to username + hashtag searches only — Profile URL
+    // searches intentionally don't send date filters (Apify URL flow ignores them).
+    if (searchType !== "url") {
+      if (dateRange.from) payload.only_posts_newer_than = format(dateRange.from, "yyyy-MM-dd");
+      if (dateRange.to) payload.only_posts_older_than = format(dateRange.to, "yyyy-MM-dd");
+    }
 
     if (searchType === "username") {
       const valid = usernames.map(u => u.trim().replace(/^@/, "")).filter(u => u);
       if (!valid.length) { toast.error("Please enter at least one username"); return; }
+      const invalid = valid.filter((u) => validateInstagramHandle(u).state === "invalid");
+      if (invalid.length) {
+        toast.error(`Invalid Instagram username: ${invalid.join(", ")}. Fix red-bordered fields before searching.`);
+        return;
+      }
       payload.usernames = valid;
       if (includeTaggedPosts) payload.include_tagged_posts = true;
     } else if (searchType === "url") {
       const urls = profileUrls.map(u => u.trim()).filter(u => u);
       if (!urls.length) { toast.error("Please enter at least one profile"); return; }
+      const invalid = urls.filter((u) => validateInstagramUrl(u).state === "invalid");
+      if (invalid.length) {
+        toast.error(`Invalid Instagram profile: ${invalid.join(", ")}. Fix red-bordered fields before searching.`);
+        return;
+      }
       payload.urls = urls;
     } else if (searchType === "hashtag") {
       const hashtag = hashtagInput.replace(/^#/, "").trim();

@@ -74,7 +74,7 @@ export function ConnectionCard({
                 <Key className="w-3 h-3 text-slate-500" />
                 API Credentials ({credentials.length})
               </h3>
-              <span className="text-[10px] text-slate-400">click <Eye /> to reveal · click Edit to change</span>
+              <span className="text-[10px] text-slate-400">paste new value below + Save to activate · saved values verified live</span>
             </div>
             <div className="space-y-2">
               {credentials.map((c) => (
@@ -94,15 +94,5 @@ export function ConnectionCard({
         )}
       </CardContent>
     </Card>
-  );
-}
-
-// Tiny inline Eye placeholder used in the hint text
-function Eye() {
-  return (
-    <svg className="inline w-3 h-3 -mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-      <circle cx="12" cy="12" r="3"></circle>
-    </svg>
   );
 }

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Key, Pencil, Save, X, Eye, EyeOff, Loader2,
+  Key, Save, Eye, EyeOff, Loader2, Calendar, AlertTriangle, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,159 +18,221 @@ const timeAgo = (iso) => {
 
 const REVEAL_AUTO_HIDE_MS = 15000;
 
+function daysUntil(iso) {
+  if (!iso) return null;
+  const target = new Date(iso).getTime();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function ExpiryBadge({ expiresAt }) {
+  if (!expiresAt) return null;
+  const days = daysUntil(expiresAt);
+  const date = new Date(expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  if (days < 0) {
+    return (
+      <Badge className="text-[10px] h-5 px-1.5 bg-red-100 text-red-700 border-red-300" data-testid="expiry-badge">
+        <AlertTriangle className="w-3 h-3 mr-1" />Expired · {date}
+      </Badge>
+    );
+  }
+  if (days <= 7) {
+    return (
+      <Badge className="text-[10px] h-5 px-1.5 bg-red-100 text-red-700 border-red-300" data-testid="expiry-badge">
+        <AlertTriangle className="w-3 h-3 mr-1" />Expires in {days} day{days === 1 ? "" : "s"}
+      </Badge>
+    );
+  }
+  if (days <= 30) {
+    return (
+      <Badge className="text-[10px] h-5 px-1.5 bg-amber-100 text-amber-700 border-amber-300" data-testid="expiry-badge">
+        <Calendar className="w-3 h-3 mr-1" />Expires in {days} days
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-slate-600" data-testid="expiry-badge">
+      <Calendar className="w-3 h-3 mr-1" />Expires in {days} days · {date}
+    </Badge>
+  );
+}
+
 export function CredentialRow({ cred, onSave, onReset, onReveal }) {
-  const [editing, setEditing] = useState(false);
-  const [revealedInEdit, setRevealedInEdit] = useState(false);
   const [newValue, setNewValue] = useState("");
+  const [showNewValue, setShowNewValue] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(cred.expires_at ? cred.expires_at.slice(0, 10) : "");
   const [saving, setSaving] = useState(false);
 
-  const [viewRevealed, setViewRevealed] = useState(null); // null = masked, string = plaintext
+  const [revealedValue, setRevealedValue] = useState(null);
   const [revealing, setRevealing] = useState(false);
 
-  // Auto-hide reveal after timeout
+  // Sync expiry when cred refreshes from server
   useEffect(() => {
-    if (viewRevealed == null) return undefined;
-    const t = setTimeout(() => setViewRevealed(null), REVEAL_AUTO_HIDE_MS);
+    setExpiresAt(cred.expires_at ? cred.expires_at.slice(0, 10) : "");
+  }, [cred.expires_at]);
+
+  // Auto-hide reveal
+  useEffect(() => {
+    if (revealedValue == null) return undefined;
+    const t = setTimeout(() => setRevealedValue(null), REVEAL_AUTO_HIDE_MS);
     return () => clearTimeout(t);
-  }, [viewRevealed]);
+  }, [revealedValue]);
 
   const handleReveal = async () => {
-    if (viewRevealed != null) {
-      setViewRevealed(null);
-      return;
-    }
+    if (revealedValue != null) { setRevealedValue(null); return; }
     setRevealing(true);
     try {
       const value = await onReveal(cred.key);
-      setViewRevealed(value || "");
+      setRevealedValue(value || "");
     } catch {
       toast.error("Failed to reveal credential");
-    } finally {
-      setRevealing(false);
-    }
+    } finally { setRevealing(false); }
   };
 
   const handleSave = async () => {
-    if (!newValue.trim()) { toast.error("Value cannot be empty"); return; }
+    if (!newValue.trim()) { toast.error("Please paste a value to save"); return; }
     setSaving(true);
     try {
-      await onSave(cred.key, newValue.trim());
-      setEditing(false);
+      const payload = { expires_at: cred.supports_expiry ? (expiresAt || "") : null };
+      await onSave(cred.key, newValue.trim(), payload);
       setNewValue("");
-      setRevealedInEdit(false);
-      setViewRevealed(null);
+      setShowNewValue(false);
+      setRevealedValue(null);
     } catch {
-      /* parent handles toast */
+      /* parent toast */
     } finally { setSaving(false); }
   };
 
-  const cancelEdit = () => { setEditing(false); setNewValue(""); setRevealedInEdit(false); };
+  const initialExpiry = cred.expires_at ? cred.expires_at.slice(0, 10) : "";
+  const expiryChanged = cred.supports_expiry && expiresAt !== initialExpiry;
+  const canSave = newValue.trim().length > 0 || expiryChanged;
 
   return (
     <div
-      className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-md bg-white border border-slate-100 hover:border-slate-200 transition-colors"
+      className="p-3 rounded-lg bg-white border border-slate-200 hover:border-slate-300 transition-colors space-y-2.5"
       data-testid={`cred-row-${cred.key}`}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Key className="w-3 h-3 text-slate-400" />
-          <span className="text-xs font-medium text-slate-700">{cred.label}</span>
-          <Badge variant="outline" className="text-[10px] h-4 px-1 border-slate-200 text-slate-500">
-            {cred.source === "database" ? "override" : cred.source}
+      {/* Header — label + status badges */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <Key className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span className="text-sm font-semibold text-slate-800">{cred.label}</span>
+          <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-slate-200 text-slate-500">
+            {cred.source === "database" ? "saved override" : cred.source === "env" ? "from .env" : "not set"}
           </Badge>
-          {viewRevealed != null && (
-            <Badge className="text-[10px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-300">
-              revealed · auto-hides in 15s
-            </Badge>
-          )}
+          {cred.supports_expiry && <ExpiryBadge expiresAt={cred.expires_at} />}
+        </div>
+        {cred.source === "database" && (
+          <Button
+            variant="ghost" size="sm" onClick={() => onReset(cred.key)}
+            className="h-7 px-2 text-[11px] text-slate-500 hover:text-red-600"
+            data-testid={`cred-reset-${cred.key}`}
+            title="Remove DB override, fall back to .env value"
+          >
+            <RotateCcw className="w-3 h-3 mr-1" />Reset
+          </Button>
+        )}
+      </div>
+
+      {/* Current value display + reveal */}
+      <div className="flex items-center gap-2 px-2.5 py-2 rounded bg-slate-50 border border-slate-100">
+        <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold shrink-0">Current</span>
+        <code
+          className="flex-1 text-xs text-slate-700 font-mono break-all select-all"
+          data-testid={`cred-current-${cred.key}`}
+        >
+          {cred.has_value
+            ? (revealedValue != null ? revealedValue : cred.masked_value)
+            : <span className="italic text-slate-400 not-italic">not set</span>}
+        </code>
+        {cred.has_value && (
+          <Button
+            variant="ghost" size="sm" onClick={handleReveal}
+            disabled={revealing}
+            className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600 shrink-0"
+            data-testid={`cred-view-reveal-${cred.key}`}
+            title={revealedValue != null ? "Hide" : "Reveal current value (auto-hides in 15s)"}
+          >
+            {revealing
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : (revealedValue != null ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />)}
+          </Button>
+        )}
+      </div>
+      {revealedValue != null && (
+        <p className="text-[10px] text-amber-600 -mt-1 ml-1">Revealed · auto-hides in 15s · access is audit-logged</p>
+      )}
+
+      {/* Always-visible new value input + (optional) expiry + Save */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Input
+            type={showNewValue ? "text" : "password"}
+            value={newValue}
+            onChange={(e) => setNewValue(e.target.value)}
+            placeholder={cred.has_value ? `Paste new ${cred.label.toLowerCase()} to replace…` : `Paste ${cred.label.toLowerCase()} here…`}
+            className="h-9 text-xs font-mono"
+            data-testid={`cred-input-${cred.key}`}
+            onKeyDown={(e) => { if (e.key === "Enter" && canSave && !saving) handleSave(); }}
+          />
+          <Button
+            variant="outline" size="sm" onClick={() => setShowNewValue((v) => !v)}
+            className="h-9 w-9 p-0 border-slate-200 shrink-0"
+            data-testid={`cred-toggle-show-${cred.key}`}
+            title={showNewValue ? "Hide input" : "Show input"}
+          >
+            {showNewValue ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </Button>
         </div>
 
-        {editing ? (
-          <div className="flex items-center gap-2 mt-1.5">
-            <Input
-              type={revealedInEdit ? "text" : "password"}
-              autoFocus
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              placeholder={`Enter new ${cred.label.toLowerCase()}`}
-              className="h-7 text-xs font-mono"
-              data-testid={`cred-input-${cred.key}`}
-            />
-            <Button
-              variant="ghost" size="sm" onClick={() => setRevealedInEdit((v) => !v)}
-              className="h-7 w-7 p-0" data-testid={`cred-toggle-reveal-${cred.key}`}
-            >
-              {revealedInEdit ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            </Button>
-          </div>
-        ) : (
-          <p
-            className="text-xs text-slate-600 font-mono mt-0.5 break-all select-all"
-            data-testid={`cred-masked-${cred.key}`}
+        <div className="flex items-end justify-between gap-2 flex-wrap">
+          {cred.supports_expiry ? (
+            <div className="flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold block">
+                  Token expires on <span className="font-normal text-slate-400 normal-case">(optional)</span>
+                </label>
+                <Input
+                  type="date" value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  className="h-8 text-xs w-44 mt-0.5"
+                  data-testid={`cred-expiry-${cred.key}`}
+                  title="Set the date this token expires (as configured in Apify Console)"
+                />
+              </div>
+              {expiresAt && (
+                <Button
+                  variant="ghost" size="sm" onClick={() => setExpiresAt("")}
+                  className="h-6 px-1.5 text-[10px] text-slate-500 hover:text-slate-700 self-end mb-1"
+                  data-testid={`cred-clear-expiry-${cred.key}`}
+                  title="Clear expiry"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          ) : <div />}
+
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 shrink-0"
+            onClick={handleSave}
+            disabled={saving || !canSave}
+            data-testid={`cred-save-${cred.key}`}
           >
-            {cred.has_value
-              ? (viewRevealed != null ? viewRevealed : cred.masked_value)
-              : <span className="italic text-slate-400">not set</span>}
-          </p>
-        )}
-
-        {cred.updated_at && !editing && (
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Updated by {cred.updated_by} · {timeAgo(cred.updated_at)}
-          </p>
-        )}
+            {saving ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-2" />}
+            Save{newValue.trim() ? " & verify" : ""}
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
-        {editing ? (
-          <>
-            <Button
-              size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-7 px-2"
-              onClick={handleSave} disabled={saving} data-testid={`cred-save-${cred.key}`}
-            >
-              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-            </Button>
-            <Button
-              variant="ghost" size="sm" onClick={cancelEdit}
-              className="h-7 w-7 p-0" data-testid={`cred-cancel-${cred.key}`}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </>
-        ) : (
-          <>
-            {cred.has_value && (
-              <Button
-                variant="ghost" size="sm" onClick={handleReveal}
-                disabled={revealing}
-                className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600"
-                data-testid={`cred-view-reveal-${cred.key}`}
-                title={viewRevealed != null ? "Hide" : "Reveal current value"}
-              >
-                {revealing
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : (viewRevealed != null ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />)}
-              </Button>
-            )}
-            <Button
-              variant="ghost" size="sm" onClick={() => setEditing(true)}
-              className="h-7 px-2 text-xs" data-testid={`cred-edit-${cred.key}`}
-            >
-              <Pencil className="w-3 h-3 mr-1" />Edit
-            </Button>
-            {cred.source === "database" && (
-              <Button
-                variant="ghost" size="sm" onClick={() => onReset(cred.key)}
-                className="h-7 px-2 text-xs text-slate-500 hover:text-red-600"
-                data-testid={`cred-reset-${cred.key}`}
-                title="Remove DB override, fall back to .env"
-              >
-                Reset
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+      {/* Footer — last updated */}
+      {cred.updated_at && (
+        <p className="text-[10px] text-slate-400">
+          Last updated by {cred.updated_by || "—"} · {timeAgo(cred.updated_at)}
+        </p>
+      )}
     </div>
   );
 }

@@ -119,3 +119,4 @@ class ApifyConnectionStatus(BaseModel):
 class UpdateCredentialRequest(BaseModel):
     key: str
     value: str
+    expires_at: Optional[str] = None  # ISO date (YYYY-MM-DD) or "" to clear; None = unchanged

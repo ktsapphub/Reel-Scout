@@ -69,6 +69,13 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.2 — 2026-05-29) Settings UI revamp + Token Expiry tracking**:
+  - **Always-visible inline inputs** in `CredentialRow.jsx` — no "Edit" click needed. Each credential row shows: current masked value + reveal eye, paste-new-value input + show/hide eye, inline Save button.
+  - **Apify token expiry**: optional date picker per Apify credential. Stored in `service_credentials.expires_at`. Apify's API does NOT expose token expiry (verified against their docs), so user enters the date they set in Apify Console.
+  - **Expiry countdown badges**: green ("Expires in 87 days · Mar 15, 2026") → amber (≤30 days) → red (≤7 days or expired)
+  - **Cloudinary**: no expiry field (per user preference — Cloudinary keys don't expire)
+  - **Backend**: `EDITABLE_CREDENTIALS` now has `supports_expiry` flag; `save_override` accepts optional `expires_at`; `UpdateCredentialRequest` model + `get_credential_metadata` return the expiry. Empty string `""` clears the previous expiry.
+  - Removed two-step Edit flow → single-click save UX. Existing tokens preserved.
 - [x] **(v2.6.1 — 2026-05-27) Bug fix — Cloudinary upload false-failure & CSV gate**:
   - **Recovery in `cloudinary_service.upload_reel_to_cloudinary`** — when `cloudinary.uploader.upload` throws (e.g. response timeout after the asset was already received), probe `cloudinary.api.resource(public_id)` and treat as success if the asset exists. Persists to `saved_reels` with `recovered: true` flag.
   - **DB write isolated** — `saved_reels` upsert failures no longer mark uploads as failed (logged as warnings; Cloudinary is the source of truth)

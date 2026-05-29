@@ -120,10 +120,14 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
 
   // --- credential save/reset ---
 
-  const handleSaveCredential = useCallback(async (key, value) => {
+  const handleSaveCredential = useCallback(async (key, value, opts = {}) => {
     try {
-      await api.put("/settings/credentials", { key, value });
-      toast.success("Credential verified & saved");
+      const payload = { key, value };
+      if (opts.expires_at !== undefined && opts.expires_at !== null) {
+        payload.expires_at = opts.expires_at;
+      }
+      await api.put("/settings/credentials", payload);
+      toast.success("Credential verified & saved — active now");
       await fetchCredentials();
       const svc = credentials.find((c) => c.key === key)?.service;
       if (svc === "apify") checkApify();

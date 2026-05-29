@@ -218,7 +218,7 @@ async def update_credential(
         raise HTTPException(status_code=400, detail=test_result.get("error", "Credential test failed"))
 
     # Persist + apply at runtime
-    await save_override(key, new_value, updated_by=user_email)
+    await save_override(key, new_value, updated_by=user_email, expires_at=request.expires_at)
     set_runtime_value(key, new_value)
 
     await log_audit("credential_updated", user_email, {"key": key})

@@ -361,6 +361,50 @@ def _post_url_parse_error_response(urls: list) -> StartSearchResponse:
     )
 
 
+async def _fetch_run_input(client: httpx.AsyncClient, run_id: str, api_token: str, kv_store_id: Optional[str] = None) -> Optional[dict]:
+    """Fetch an Apify run's original INPUT from its default key-value-store.
+
+    Used by ``get_search_status`` to recover the cache key after a pod restart
+    has wiped the in-memory ``active_runs`` dict.
+    """
+    try:
+        if not kv_store_id:
+            meta = await client.get(f"https://api.apify.com/v2/actor-runs/{run_id}?token={api_token}")
+            kv_store_id = meta.json().get("data", {}).get("defaultKeyValueStoreId")
+        if not kv_store_id:
+            return None
+        ir = await client.get(
+            f"https://api.apify.com/v2/key-value-stores/{kv_store_id}/records/INPUT?token={api_token}"
+        )
+        if ir.status_code == 200:
+            return ir.json()
+    except Exception as e:
+        logger.warning(f"Could not fetch run input for {run_id}: {e}")
+    return None
+
+
+def _reconstruct_cache_key_from_run_input(run_input: dict) -> tuple:
+    """Best-effort recreate (cache_key, search_type, max_results) from a stored
+    Apify run input. Returns ``(None, None, 25)`` if the shape isn't recognised.
+    """
+    if not isinstance(run_input, dict):
+        return None, None, 25
+    if run_input.get("hashtags"):
+        hashtag = (run_input["hashtags"][0] or "").lower().strip()
+        max_r = run_input.get("resultsCount", 25)
+        return generate_cache_key("hashtag", hashtag=hashtag, max_results=max_r), "hashtag", max_r
+    if run_input.get("directUrls"):
+        urls = [u for u in run_input["directUrls"] if u]
+        if urls:
+            return generate_cache_key("post_url", post_urls=urls), "post_url", len(urls)
+    if run_input.get("username") or run_input.get("usernames"):
+        users = run_input.get("username") or run_input.get("usernames")
+        max_r = run_input.get("resultsLimit") or run_input.get("resultsCount", 25)
+        if users:
+            return generate_cache_key("username", usernames=users, max_results=max_r), "username", max_r
+    return None, None, 25
+
+
 async def _maybe_return_cached(
     cache_key: str, request: SearchRequest, actor_id: str, user_email: str
 ) -> Optional[StartSearchResponse]:
@@ -620,6 +664,27 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
             run_status = status_data["data"]["status"]
             dataset_id = status_data["data"].get("defaultDatasetId")
 
+            # --- Post-restart recovery ----------------------------------------
+            # active_runs is in-memory and wiped on restart. If the cache_key was
+            # lost, reconstruct it from the Apify run's stored INPUT so we can
+            # still warm the cache once this run reaches SUCCEEDED. Same for
+            # search_type so date-range filtering keys still match downstream.
+            if not run_info and not cache_key:
+                kv_store_id = status_data["data"].get("defaultKeyValueStoreId")
+                run_input = await _fetch_run_input(client, run_id, api_token, kv_store_id)
+                if run_input:
+                    rk, rtype, rmax = _reconstruct_cache_key_from_run_input(run_input)
+                    if rk:
+                        cache_key = rk
+                        if rtype:
+                            search_type = rtype
+                        if rmax:
+                            max_results = rmax
+                        logger.info(
+                            f"Reconstructed cache_key after restart for run {run_id}: "
+                            f"{cache_key} (search_type={search_type})"
+                        )
+
             progress, estimated_remaining = _compute_progress(started_at, max_results)
             items_processed = 0
             if run_status == "RUNNING":
@@ -666,6 +731,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
     run_info = active_runs.get(run_id, {})
     actor_id = run_info.get("actor_id", APIFY_ACTOR_ID)
     search_type = run_info.get("search_type", "unknown")
+    cache_key = run_info.get("cache_key")
     api_token = run_info.get("api_token") or _token_for_search(search_type)
     if not api_token:
         raise HTTPException(status_code=500, detail="Apify token not configured")
@@ -693,6 +759,19 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
 
             await client.post(f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/abort?token={api_token}")
             active_runs.pop(run_id, None)
+
+            # Warm the History cache with whatever we got before the abort —
+            # so the user can re-open this partial set without re-burning Apify
+            # credits. Skip silently if cache_key wasn't tracked (e.g. legacy run).
+            if cache_key and partial_results:
+                try:
+                    await save_to_cache(cache_key, partial_results)
+                    logger.info(
+                        f"Saved {len(partial_results)} partial results to cache "
+                        f"{cache_key} after stop of run {run_id}"
+                    )
+                except Exception as cache_err:
+                    logger.warning(f"Failed to cache partial results for {run_id}: {cache_err}")
 
             await log_audit("search_stopped", user_email, {
                 "run_id": run_id, "partial_results_count": len(partial_results),

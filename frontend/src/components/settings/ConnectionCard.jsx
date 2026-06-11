@@ -20,7 +20,7 @@ const timeAgo = (iso) => {
 export function ConnectionCard({
   title, icon: Icon, status, checkedAt, validUntil, validityMinutes,
   isChecking, onCheck, credentials, onSaveCredential, onResetCredential,
-  onRevealCredential, children,
+  onRevealCredential, onTestCredential, children,
 }) {
   const ago = timeAgo(checkedAt);
   const isStale = checkedAt && validUntil ? Date.now() > new Date(validUntil).getTime() : false;
@@ -83,6 +83,7 @@ export function ConnectionCard({
                   onSave={onSaveCredential}
                   onReset={onResetCredential}
                   onReveal={onRevealCredential}
+                  onTest={onTestCredential}
                 />
               ))}
             </div>

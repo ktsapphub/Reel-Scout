@@ -21,6 +21,11 @@ EDITABLE_CREDENTIALS = {
         "description": "API token used for hashtag scraping",
         "sensitive": True,
         "supports_expiry": True,
+        "used_by": [
+            {"name": "Hashtag Scraper", "actor": "reGe1ST3OBgYZSsZJ", "search_modes": ["hashtag"]},
+            {"name": "General Scraper", "actor": "apify~instagram-scraper", "search_modes": ["post_url"]},
+            {"name": "Reel Scraper (cache store)", "actor": "apify~instagram-reel-scraper", "search_modes": ["cache"]},
+        ],
     },
     "APIFY_USERNAME_TOKEN": {
         "service": "apify",
@@ -28,6 +33,9 @@ EDITABLE_CREDENTIALS = {
         "description": "API token used for profile/username scraping",
         "sensitive": True,
         "supports_expiry": True,
+        "used_by": [
+            {"name": "Username Scraper", "actor": "xMc5Ga1oCONPmWJIa", "search_modes": ["username", "url"]},
+        ],
     },
     "CLOUDINARY_CLOUD_NAME": {
         "service": "cloudinary",
@@ -35,6 +43,7 @@ EDITABLE_CREDENTIALS = {
         "description": "Cloudinary cloud identifier",
         "sensitive": False,
         "supports_expiry": False,
+        "used_by": [{"name": "Cloudinary uploads", "actor": "cloudinary-sdk", "search_modes": ["upload"]}],
     },
     "CLOUDINARY_API_KEY": {
         "service": "cloudinary",
@@ -42,6 +51,7 @@ EDITABLE_CREDENTIALS = {
         "description": "Cloudinary API key",
         "sensitive": True,
         "supports_expiry": False,
+        "used_by": [{"name": "Cloudinary uploads", "actor": "cloudinary-sdk", "search_modes": ["upload"]}],
     },
     "CLOUDINARY_API_SECRET": {
         "service": "cloudinary",
@@ -49,6 +59,7 @@ EDITABLE_CREDENTIALS = {
         "description": "Cloudinary API secret",
         "sensitive": True,
         "supports_expiry": False,
+        "used_by": [{"name": "Cloudinary uploads", "actor": "cloudinary-sdk", "search_modes": ["upload"]}],
     },
 }
 
@@ -160,6 +171,7 @@ async def get_credential_metadata(key: str) -> dict:
         "service": meta.get("service", ""),
         "sensitive": meta.get("sensitive", True),
         "supports_expiry": meta.get("supports_expiry", False),
+        "used_by": meta.get("used_by", []),
         "masked_value": mask_value(current, key),
         "has_value": bool(current),
         "source": "database" if override_doc else ("env" if env_val else "none"),

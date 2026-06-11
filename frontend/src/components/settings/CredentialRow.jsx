@@ -1,9 +1,11 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Key, Save, Eye, EyeOff, Loader2, Calendar, AlertTriangle, RotateCcw,
+  Zap, CheckCircle2, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,7 +59,7 @@ function ExpiryBadge({ expiresAt }) {
   );
 }
 
-export function CredentialRow({ cred, onSave, onReset, onReveal }) {
+export function CredentialRow({ cred, onSave, onReset, onReveal, onTest }) {
   const [newValue, setNewValue] = useState("");
   const [showNewValue, setShowNewValue] = useState(false);
   const [expiresAt, setExpiresAt] = useState(cred.expires_at ? cred.expires_at.slice(0, 10) : "");
@@ -66,12 +68,15 @@ export function CredentialRow({ cred, onSave, onReset, onReveal }) {
   const [revealedValue, setRevealedValue] = useState(null);
   const [revealing, setRevealing] = useState(false);
 
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
   // Sync expiry when cred refreshes from server
   useEffect(() => {
     setExpiresAt(cred.expires_at ? cred.expires_at.slice(0, 10) : "");
   }, [cred.expires_at]);
 
-  // Auto-hide reveal
+  // Auto-hide reveal (deferred state update via setTimeout — not a direct effect-body setState)
   useEffect(() => {
     if (revealedValue == null) return undefined;
     const t = setTimeout(() => setRevealedValue(null), REVEAL_AUTO_HIDE_MS);
@@ -98,9 +103,26 @@ export function CredentialRow({ cred, onSave, onReset, onReveal }) {
       setNewValue("");
       setShowNewValue(false);
       setRevealedValue(null);
+      setTestResult(null);
     } catch {
       /* parent toast */
     } finally { setSaving(false); }
+  };
+
+  const handleTest = async () => {
+    if (!onTest) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await onTest(cred.key);
+      setTestResult(result);
+      if (result?.ok) toast.success(`${cred.label} is valid`);
+      else toast.error(`${cred.label} failed: ${result?.error || "unknown error"}`);
+    } catch (err) {
+      const errMsg = err?.response?.data?.error || err?.message || "Test failed";
+      setTestResult({ ok: false, error: errMsg });
+      toast.error(errMsg);
+    } finally { setTesting(false); }
   };
 
   const initialExpiry = cred.expires_at ? cred.expires_at.slice(0, 10) : "";
@@ -214,24 +236,82 @@ export function CredentialRow({ cred, onSave, onReset, onReveal }) {
             </div>
           ) : <div />}
 
-          <Button
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 shrink-0"
-            onClick={handleSave}
-            disabled={saving || !canSave}
-            data-testid={`cred-save-${cred.key}`}
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-2" />}
-            Save{newValue.trim() ? " & verify" : ""}
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {cred.has_value && onTest && (
+              <Button
+                variant="outline" size="sm"
+                onClick={handleTest}
+                disabled={testing}
+                className="h-9 px-3 border-slate-300 text-slate-700 hover:bg-slate-50"
+                data-testid={`cred-test-${cred.key}`}
+                title="Run a live validity check against the upstream API"
+              >
+                {testing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-1.5 text-amber-500" />}
+                Test now
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4"
+              onClick={handleSave}
+              disabled={saving || !canSave}
+              data-testid={`cred-save-${cred.key}`}
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-2" />}
+              Save{newValue.trim() ? " & verify" : ""}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Footer — last updated */}
+      {/* Footer — last updated + Test result */}
       {cred.updated_at && (
         <p className="text-[10px] text-slate-400">
           Last updated by {cred.updated_by || "—"} · {timeAgo(cred.updated_at)}
         </p>
+      )}
+
+      {/* "Used by" mapping — which Apify actors / SDKs consume this credential */}
+      {Array.isArray(cred.used_by) && cred.used_by.length > 0 && (
+        <div className="pt-1.5 border-t border-slate-100">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5 flex items-center gap-1">
+            <Zap className="w-3 h-3 text-amber-500" />Used by
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {cred.used_by.map((u) => (
+              <span
+                key={u.name + u.actor}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] text-slate-700"
+                title={`Actor ID: ${u.actor} · Used in: ${(u.search_modes || []).join(", ")}`}
+                data-testid={`cred-used-by-${cred.key}-${u.name.replace(/\s+/g, "-").toLowerCase()}`}
+              >
+                <span className="font-semibold">{u.name}</span>
+                {(u.search_modes || []).length > 0 && (
+                  <span className="text-slate-400">· {u.search_modes.join(" / ")}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Test result */}
+      {testResult && (
+        <div
+          className={`flex items-start gap-2 p-2 rounded-md text-xs ${
+            testResult.ok ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-red-50 border border-red-200 text-red-800"
+          }`}
+          data-testid={`cred-test-result-${cred.key}`}
+        >
+          {testResult.ok ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
+          <div className="min-w-0">
+            {testResult.ok ? (
+              <p className="font-semibold">Verified — credential is currently valid</p>
+            ) : (
+              <p className="font-semibold break-all">Failed: {testResult.error || "Unknown error"}</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

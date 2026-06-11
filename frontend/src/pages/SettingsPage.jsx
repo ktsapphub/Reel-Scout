@@ -156,6 +156,11 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
     return response.data.value;
   }, [api]);
 
+  const handleTestCredential = useCallback(async (key) => {
+    const response = await api.post(`/settings/credentials/${key}/test`);
+    return response.data;
+  }, [api]);
+
   const apifyCreds = useMemo(
     () => credentials.filter((c) => c.service === "apify"),
     [credentials]
@@ -248,6 +253,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             onSaveCredential={handleSaveCredential}
             onResetCredential={handleResetCredential}
             onRevealCredential={handleRevealCredential}
+            onTestCredential={handleTestCredential}
           >
             {apifyStatus && (
               <div className="space-y-3">
@@ -318,6 +324,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             onSaveCredential={handleSaveCredential}
             onResetCredential={handleResetCredential}
             onRevealCredential={handleRevealCredential}
+            onTestCredential={handleTestCredential}
           >
             {cloudinaryStatus && (
               <div className="space-y-1">

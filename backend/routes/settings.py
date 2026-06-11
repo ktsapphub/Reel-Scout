@@ -22,8 +22,8 @@ from services.health_service import (
 
 router = APIRouter(prefix="/api")
 
-APP_VERSION = "2.6.3"
-BUILD_DATE = "2026-05-29"
+APP_VERSION = "2.6.11"
+BUILD_DATE = "2026-06-08"
 
 
 @router.get("/settings/build-info")
@@ -244,6 +244,20 @@ async def reset_credential(key: str, user_email: str = Depends(get_current_user)
     await log_audit("credential_reset", user_email, {"key": key})
     meta = await get_credential_metadata(key)
     return {"ok": True, "credential": meta}
+
+
+@router.post("/settings/credentials/{key}/test")
+async def test_credential_endpoint(key: str, user_email: str = Depends(get_current_user)):
+    """Run a live validity check against the currently-stored value of this credential.
+    Used by the Settings UI "Test now" button so users can verify without re-saving.
+    """
+    if key not in EDITABLE_CREDENTIALS:
+        raise HTTPException(status_code=400, detail=f"Unknown credential: {key}")
+    current = get_runtime_value(key)
+    if not current:
+        return {"ok": False, "error": "No value saved for this credential — paste a value and click Save first"}
+    await log_audit("credential_tested", user_email, {"key": key})
+    return await _test_credential(key, current)
 
 
 async def _test_credential(key: str, value: str) -> dict:

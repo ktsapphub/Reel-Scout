@@ -22,6 +22,7 @@ from routes.auth import get_current_user, log_audit
 from services.apify_service import (
     active_runs, generate_cache_key, get_cached_results,
     save_to_cache, process_apify_results, run_actor_sync,
+    build_search_config,
 )
 from services.cloudinary_service import upload_reel_to_cloudinary
 
@@ -477,7 +478,7 @@ async def _try_sync_run(
         only_posts_older_than=request.only_posts_older_than,
     )
     if cache_key and results:
-        await save_to_cache(cache_key, results)
+        await save_to_cache(cache_key, results, search_config=build_search_config(request))
     sync_run_id = f"sync_{cache_key or 'run'}_{datetime.now(timezone.utc).timestamp()}"
     active_runs[sync_run_id] = {
         "user_email": user_email, "started_at": datetime.now(timezone.utc),
@@ -606,6 +607,7 @@ async def start_search(request: SearchRequest, user_email: str = Depends(get_cur
                     "actor_id": actor_id, "cache_key": cache_key, "api_token": api_token,
                     "only_posts_newer_than": request.only_posts_newer_than,
                     "only_posts_older_than": request.only_posts_older_than,
+                    "search_config": build_search_config(request),
                 }
                 logger.info(f"Started Apify run: {run_id} with actor: {actor_id}")
                 await log_audit("search_started", user_email, {
@@ -701,7 +703,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     only_posts_older_than=run_info.get("only_posts_older_than"),
                 )
                 if cache_key and results:
-                    await save_to_cache(cache_key, results)
+                    await save_to_cache(cache_key, results, search_config=run_info.get("search_config"))
                 active_runs.pop(run_id, None)
                 return SearchStatusResponse(
                     status=run_status, progress=100, estimated_seconds_remaining=0,
@@ -765,7 +767,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
             # credits. Skip silently if cache_key wasn't tracked (e.g. legacy run).
             if cache_key and partial_results:
                 try:
-                    await save_to_cache(cache_key, partial_results)
+                    await save_to_cache(cache_key, partial_results, search_config=run_info.get("search_config"))
                     logger.info(
                         f"Saved {len(partial_results)} partial results to cache "
                         f"{cache_key} after stop of run {run_id}"

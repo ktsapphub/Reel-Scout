@@ -110,7 +110,7 @@ async def get_cached_results(cache_key: str) -> Optional[List[Dict]]:
             return None
 
 
-async def save_to_cache(cache_key: str, results: List):
+async def save_to_cache(cache_key: str, results: List, search_config: Optional[Dict] = None):
     if not cache_key or not results:
         return
     store_id = await get_or_create_cache_store()
@@ -122,6 +122,8 @@ async def save_to_cache(cache_key: str, results: List):
                 "cached_at": datetime.now(timezone.utc).isoformat(),
                 "results": [r.model_dump() if hasattr(r, 'model_dump') else r for r in results]
             }
+            if search_config:
+                cache_data["search_config"] = search_config
             await client.put(
                 f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{cache_key}?token={get_runtime_value('APIFY_TOKEN')}",
                 json=cache_data,
@@ -130,6 +132,21 @@ async def save_to_cache(cache_key: str, results: List):
             logger.info(f"Saved {len(results)} results to cache: {cache_key}")
         except Exception as e:
             logger.error(f"Error saving to cache: {e}")
+
+
+def build_search_config(request) -> Dict:
+    """Capture the parts of a SearchRequest needed to re-run / resume it later."""
+    return {
+        "search_type": request.search_type,
+        "usernames": request.usernames or None,
+        "urls": request.urls or None,
+        "post_urls": request.post_urls or None,
+        "hashtag": request.hashtag or None,
+        "max_results": request.max_results,
+        "only_posts_newer_than": request.only_posts_newer_than or None,
+        "only_posts_older_than": request.only_posts_older_than or None,
+        "include_tagged_posts": bool(request.include_tagged_posts),
+    }
 
 
 async def run_actor_sync(

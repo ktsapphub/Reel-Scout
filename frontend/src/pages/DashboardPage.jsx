@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ const UPLOADED_KEY = "ig_reel_finder_uploaded";
 
 export default function DashboardPage({ token, userEmail, onLogout, backendUrl }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Form state
@@ -139,6 +140,30 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
     const loadParam = searchParams.get("load");
     if (loadParam) { loadCachedSearch(loadParam); setSearchParams({}); }
   }, [searchParams, loadCachedSearch, setSearchParams]);
+
+  // Resume search — prefill form from History → "Resume" / "Re-run" click
+  useEffect(() => {
+    const cfg = location.state?.resumeConfig;
+    if (!cfg) return;
+    setSearchType(cfg.search_type || "username");
+    if (cfg.usernames?.length) setUsernames(cfg.usernames);
+    if (cfg.urls?.length) setProfileUrls(cfg.urls);
+    if (cfg.post_urls?.length) setPostUrls(cfg.post_urls);
+    if (cfg.hashtag) setHashtagInput(cfg.hashtag);
+    if (cfg.max_results) setMaxResults(cfg.max_results);
+    if (typeof cfg.include_tagged_posts === "boolean") setIncludeTaggedPosts(cfg.include_tagged_posts);
+    if (cfg.only_posts_newer_than || cfg.only_posts_older_than) {
+      setDateRange({
+        from: cfg.only_posts_newer_than ? new Date(cfg.only_posts_newer_than) : undefined,
+        to: cfg.only_posts_older_than ? new Date(cfg.only_posts_older_than) : undefined,
+      });
+    }
+    toast.success(`Search prefilled — click Run Search to resume (max ${cfg.max_results} reels)`);
+    // Clear navigation state so a manual refresh doesn't re-trigger this.
+    navigate(location.pathname, { replace: true, state: {} });
+    // Scroll to top so the user sees the prefilled form.
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [location.state, location.pathname, navigate]);
 
   const toggleTranscript = (id) => {
     const n = new Set(expandedTranscripts);

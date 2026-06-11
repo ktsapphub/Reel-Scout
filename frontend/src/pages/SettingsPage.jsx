@@ -225,7 +225,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.12</p>
+              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.13</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

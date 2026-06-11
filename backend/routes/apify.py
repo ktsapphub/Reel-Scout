@@ -146,7 +146,8 @@ async def get_search_history(user_email: str = Depends(get_current_user)):
                         if record_response.status_code == 200:
                             record_data = record_response.json()
                             results = record_data.get("results", [])
-                            search_term = _derive_search_term(results, search_type)
+                            search_config = record_data.get("search_config")
+                            search_term = _derive_search_term(results, search_type, search_config)
                             # Tally uploaded / exported counts from saved_reels DB
                             reel_urls = [r.get("reel_url") for r in results if r.get("reel_url")]
                             uploaded_count = 0
@@ -158,12 +159,21 @@ async def get_search_history(user_email: str = Depends(get_current_user)):
                                 exported_count = await db.saved_reels.count_documents(
                                     {"reel_url": {"$in": reel_urls}, "exported_at": {"$exists": True, "$ne": ""}}
                                 )
+                            # Heuristic: if the saved result count is below the user's
+                            # requested max, this row was likely aborted / partial.
+                            max_results = (search_config or {}).get("max_results")
+                            is_partial = bool(
+                                max_results and len(results) < max_results
+                                and search_type in ("username", "hashtag")
+                            )
                             history.append({
                                 "cache_key": key, "search_type": search_type,
                                 "search_term": search_term, "results_count": len(results),
                                 "uploaded_count": uploaded_count,
                                 "exported_count": exported_count,
                                 "cached_at": record_data.get("cached_at", ""), "store_id": store_id,
+                                "search_config": search_config,
+                                "is_partial": is_partial,
                             })
                     except Exception as e:
                         logger.error(f"Error fetching record {key}: {e}")
@@ -174,13 +184,27 @@ async def get_search_history(user_email: str = Depends(get_current_user)):
     return {"history": history, "store_id": store_id, "store_name": APIFY_CACHE_STORE_NAME}
 
 
-def _derive_search_term(results: list, search_type: str) -> str:
-    """Derive a human-readable search term from cached results."""
+def _derive_search_term(results: list, search_type: str, search_config: Optional[dict] = None) -> str:
+    """Derive a human-readable search term from cached results.
+    Prefers the stored search_config (Resume metadata) when available.
+    """
+    if search_config:
+        if search_type == "hashtag" and search_config.get("hashtag"):
+            return f"#{search_config['hashtag']}"
+        if search_type == "username" and search_config.get("usernames"):
+            users = search_config["usernames"]
+            term = ", ".join(f"@{u}" for u in users[:3])
+            if len(users) > 3:
+                term += f" (+{len(users) - 3} more)"
+            return term
+        if search_type == "post_url" and search_config.get("post_urls"):
+            urls = search_config["post_urls"]
+            return f"{len(urls)} post URL{'s' if len(urls) > 1 else ''}"
     if not results:
         return ""
     if search_type == "username":
         usernames = list(set(r.get("owner_username", "") for r in results if r.get("owner_username")))
-        term = ", ".join(usernames[:3])
+        term = ", ".join(f"@{u}" for u in usernames[:3])
         if len(usernames) > 3:
             term += f" (+{len(usernames) - 3} more)"
         return term

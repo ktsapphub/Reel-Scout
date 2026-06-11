@@ -46,6 +46,7 @@ import {
   Users,
   Layers,
   Check,
+  RotateCcw,
 } from "lucide-react";
 import axios from "axios";
 
@@ -474,6 +475,20 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
     navigate(`/?load=${encodeURIComponent(cacheKey)}`);
   };
 
+  const resumeSearch = (item) => {
+    if (!item?.search_config) {
+      toast.error("This search has no resume metadata (cached before v2.6.13). Re-run it manually from the Dashboard.");
+      return;
+    }
+    // Bump max_results so the user actually gets more reels than last time.
+    // Cap at 100 (Apify-friendly default upper bound).
+    const cfg = { ...item.search_config };
+    const prev = cfg.max_results || 25;
+    cfg.max_results = Math.min(100, prev + 25);
+    toast.info(`Resuming search with max_results = ${cfg.max_results} (was ${prev})`);
+    navigate("/", { state: { resumeConfig: cfg } });
+  };
+
   const loadPreviewResults = async (cacheKey) => {
     if (inlinePreview[cacheKey]) return; // Already loaded
     
@@ -805,6 +820,11 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
                             <Database className="w-3 h-3" />
                             {item.results_count} results
                           </span>
+                          {item.is_partial && (
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] h-5 px-1.5" data-testid={`history-partial-${index}`}>
+                              Partial ({item.results_count}/{item.search_config?.max_results})
+                            </Badge>
+                          )}
                           {item.uploaded_count > 0 && (
                             <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] h-5 px-1.5" data-testid={`history-uploaded-count-${index}`}>
                               <Check className="w-3 h-3 mr-1" />{item.uploaded_count} uploaded
@@ -852,6 +872,27 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
                       >
                         Load Results
                       </Button>
+                      {item.search_config && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={`${
+                            item.is_partial
+                              ? "border-amber-300 text-amber-700 hover:bg-amber-50 ring-1 ring-amber-200"
+                              : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                          onClick={() => resumeSearch(item)}
+                          data-testid={`resume-search-${item.cache_key}`}
+                          title={
+                            item.is_partial
+                              ? `Aborted: only ${item.results_count} of ${item.search_config?.max_results}. Resume with a higher cap.`
+                              : "Re-run this search with a higher max_results"
+                          }
+                        >
+                          <RotateCcw className="w-4 h-4 mr-1" />
+                          {item.is_partial ? "Resume" : "Re-run"}
+                        </Button>
+                      )}
                     </div>
                   </div>
 

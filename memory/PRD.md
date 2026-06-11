@@ -69,6 +69,13 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.14 — 2026-02 fork) "Resume / Re-run" search button on History page**:
+  - **Backend `save_to_cache(cache_key, results, search_config=None)`** now also persists the original `search_config` (search_type, usernames/urls/post_urls/hashtag, max_results, date filters, include_tagged_posts) alongside cached results. Three call sites updated: sync path, async completion (`get_search_status`), and `stop_search` — all reuse `active_runs[run_id]["search_config"]` so aborted runs keep their resume metadata.
+  - **`GET /api/search-history`** now exposes `search_config` per entry plus an `is_partial` heuristic (`results_count < max_results` for username/hashtag rows).
+  - **`_derive_search_term`** prefers stored `search_config` for stable display (`@nasa, @natgeo (+2 more)` for usernames, `#travel` for hashtags, `N post URLs` for post-URL searches).
+  - **Frontend**: New "Resume" / "Re-run" button per history row. **Resume** (amber-ringed) when partial; **Re-run** (slate) when complete. On click it navigates to Dashboard with `location.state.resumeConfig`, which prefills SearchForm and bumps `max_results` by +25 (capped at 100). A "Partial (N/M)" badge marks aborted rows. Toast confirms "Resuming search with max_results = X (was Y)". User clicks Run Search to start the new search.
+  - Legacy entries cached before v2.6.14 have no `search_config` — the Resume button is hidden for them (graceful degradation).
+  - Verified via inline pytest of `build_search_config` + `_derive_search_term` (3+3 assertions pass). Versions bumped to 2.6.13 (frontend Settings) and 2.6.13 (backend).
 - [x] **(v2.6.13 — 2026-02 fork) Partial-result upload + export verified end-to-end**:
   - Confirmed via pytest (`/app/backend/tests/test_iter13_partial_upload_export.py`) that a partial reel returned by `POST /api/reels/search/stop/{run_id}` flows through `POST /api/reels/upload` (200 OK, completed=1, real Cloudinary URL) and `POST /api/reels/export` (200, text/csv with reel_url + cloudinary_url). **There is no "search must be COMPLETED" gate anywhere** in the backend or frontend.
   - Frontend wiring: `useSearchPolling.stopSearch` returns `partial_results`; `DashboardPage.handleStopSearch` calls `setResults(partial_results)`; `ResultsGrid` Upload/Export buttons are disabled **only** on empty selection.

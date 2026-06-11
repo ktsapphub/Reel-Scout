@@ -69,6 +69,14 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.11 — 2026-02 fork) Settings — live verify-on-mount + Used-by mapping + Test now + ESLint fix**:
+  - **Live verify-on-mount**: When health-status cache is stale (>5min) or failed, Settings auto-triggers fresh checks.
+  - **"Used by" badges** on each credential row (Hashtag Token → Hashtag Scraper, Username Token → Profile Scraper + Reel Scraper, etc.).
+  - **Per-credential "Test now" button** → `POST /api/settings/credentials/{key}/test` returns valid/invalid + connection info, surfaced via sonner toast.
+  - **Backend cache fix**: `stop_search` now calls `save_to_cache`; `get_search_status` regenerates cache key from run meta when `run_info` is empty.
+  - **ESLint blocker fix**: Removed `react-hooks/set-state-in-effect` disable comments referencing a rule not in local CRA's plugin — build is now clean.
+  - **Version badge** bumped to v2.6.11.
+  - testing_agent_v3_fork: Frontend 100%, Backend 92% (4 backend "failures" all attributable to a stale `.env` APIFY_TOKEN; not code bugs — app correctly surfaces invalid tokens with the clean error card + how-to-resolve steps).
 - [x] **(v2.6.10 — 2026-05-29) Active search-method indicator**:
   - **New `<active-search-method-banner>`** below the tabs — blue box with the method icon in a 7×7 blue badge + uppercase "CURRENTLY SEARCHING BY" label + method name + plain-language description ("Pulling reels from one or more @handles", "Looking up specific reel/post URLs (max 10)", etc.).
   - **Active tab styling upgraded**: solid `bg-blue-600` + `text-white` + `shadow-md` + `font-semibold` + `ring-2 ring-blue-400 ring-offset-1` — completely unambiguous which tab is in use. Inactive tabs get `text-slate-600` with a subtle hover.

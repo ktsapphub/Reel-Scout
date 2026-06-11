@@ -22,7 +22,7 @@ from services.health_service import (
 
 router = APIRouter(prefix="/api")
 
-APP_VERSION = "2.6.13"
+APP_VERSION = "2.6.14"
 BUILD_DATE = "2026-06-08"
 
 

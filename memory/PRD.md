@@ -69,6 +69,13 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.14 — 2026-02 fork) Settings page never serves stale state + credentials are always editable**:
+  - **Cache-busting on every Settings GET**: every `/settings/*` fetch (credentials, health-status, build-info) appends `?_t=${Date.now()}` and sends `Cache-Control: no-cache, no-store, must-revalidate` + `Pragma: no-cache` request headers via the axios instance. Browser/CDN/proxy caches are bypassed.
+  - **Auto-refetch on tab focus / visibility change**: when the user returns to the Settings tab after being away (e.g., updated a token in Apify Console), credentials + health auto-refresh. Wired via `visibilitychange` + `focus` listeners.
+  - **New "Refresh" button** in the Settings header — always visible, force-refreshes credentials + health + build info in parallel, bypassing all caches.
+  - **"Could not load credentials" banner with Retry**: when `GET /settings/credentials` fails for any reason, a red banner appears with the exact error and a Retry button — the user is never silently stuck without an edit path.
+  - **CredentialRow edit path stays available regardless of connection state**: input, Save, Reset, Reveal, Test now buttons inside `CredentialRow` are gated only on local row state (saving / testing / has value) — never on parent connection-status or health-summary state. Verified via source review.
+  - Versions bumped to 2.6.14 (backend + frontend).
 - [x] **(v2.6.14 — 2026-02 fork) "Resume / Re-run" search button on History page**:
   - **Backend `save_to_cache(cache_key, results, search_config=None)`** now also persists the original `search_config` (search_type, usernames/urls/post_urls/hashtag, max_results, date filters, include_tagged_posts) alongside cached results. Three call sites updated: sync path, async completion (`get_search_status`), and `stop_search` — all reuse `active_runs[run_id]["search_config"]` so aborted runs keep their resume metadata.
   - **`GET /api/search-history`** now exposes `search_config` per entry plus an `is_partial` heuristic (`results_count < max_results` for username/hashtag rows).

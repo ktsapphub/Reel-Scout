@@ -8,6 +8,7 @@ import {
   Instagram, ArrowLeft, Wifi, Cloud, Database,
   Loader2, User, Code, Zap, Shield, Hash,
   CheckCircle2, XCircle, MinusCircle, KeyRound, X,
+  RefreshCw,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -41,6 +42,8 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
   const [checkingMongo, setCheckingMongo] = useState(false);
 
   const [credentials, setCredentials] = useState([]);
+  const [loadingCreds, setLoadingCreds] = useState(true);
+  const [credsError, setCredsError] = useState(null);
   const [healthSummary, setHealthSummary] = useState({});
 
   const [testingAll, setTestingAll] = useState(false);
@@ -48,33 +51,54 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
 
   const api = useMemo(() => axios.create({
     baseURL: `${backendUrl}/api`,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Defeat both browser HTTP cache and any intermediate proxy cache so the
+      // Settings page always reflects the latest backend state.
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+    },
   }), [backendUrl, token]);
+
+  // Append `?_t=...` to every GET so even an aggressively-cached proxy can't
+  // serve stale credentials/health. Cheap and bulletproof.
+  const bust = () => `_t=${Date.now()}`;
 
   // --- fetchers ---
 
   const fetchBuildInfo = useCallback(async () => {
     setLoadingBuild(true);
     try {
-      const response = await api.get("/settings/build-info");
+      const response = await api.get(`/settings/build-info?${bust()}`);
       setBuildInfo(response.data);
     } catch { toast.error("Failed to load build info"); }
     finally { setLoadingBuild(false); }
   }, [api]);
 
   const fetchCredentials = useCallback(async () => {
+    setLoadingCreds(true);
+    setCredsError(null);
     try {
-      const response = await api.get("/settings/credentials");
+      const response = await api.get(`/settings/credentials?${bust()}`);
       setCredentials(response.data.credentials || []);
-    } catch { /* silent */ }
+    } catch (err) {
+      setCredsError(err?.response?.data?.detail || err?.message || "Failed to load credentials");
+    } finally { setLoadingCreds(false); }
   }, [api]);
 
   const fetchHealthSummary = useCallback(async () => {
     try {
-      const response = await api.get("/settings/health-status");
+      const response = await api.get(`/settings/health-status?${bust()}`);
       setHealthSummary(response.data || {});
     } catch { /* silent */ }
   }, [api]);
+
+  const refreshAll = useCallback(async () => {
+    // Manual hard refresh — re-pulls everything from the backend without trusting
+    // any prior page state. Used by the explicit "Refresh" button and by the
+    // visibilitychange/focus handlers below.
+    await Promise.all([fetchBuildInfo(), fetchCredentials(), fetchHealthSummary()]);
+  }, [fetchBuildInfo, fetchCredentials, fetchHealthSummary]);
 
   useEffect(() => {
     // Initial data load on mount — fetchers are stable via useCallback
@@ -82,6 +106,24 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
     fetchCredentials();
     fetchHealthSummary();
   }, [fetchBuildInfo, fetchCredentials, fetchHealthSummary]);
+
+  // Refetch when the user returns to this tab/window after being away.
+  // Prevents the Settings page from showing stale credentials/health when the
+  // user updates a token elsewhere or comes back from a long-running search.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchCredentials();
+        fetchHealthSummary();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [fetchCredentials, fetchHealthSummary]);
 
   // --- checks ---
 
@@ -225,7 +267,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.13</p>
+              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.14</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -252,6 +294,19 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button
+              onClick={refreshAll}
+              disabled={loadingCreds || loadingBuild}
+              variant="outline"
+              className="border-slate-200 text-slate-700 hover:bg-slate-50"
+              data-testid="refresh-settings-btn"
+              title="Force-refresh credentials, health, and build info — bypasses any cache"
+            >
+              {(loadingCreds || loadingBuild)
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <RefreshCw className="w-4 h-4 mr-2" />}
+              Refresh
+            </Button>
+            <Button
               onClick={testAllCredentials}
               disabled={testingAll}
               variant="outline"
@@ -276,6 +331,31 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             </Button>
           </div>
         </div>
+
+        {credsError && (
+          <div
+            className="flex items-start justify-between gap-3 p-4 bg-red-50 border border-red-200 rounded-xl"
+            data-testid="creds-error-banner"
+          >
+            <div className="flex items-start gap-2">
+              <XCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-900">Could not load credentials</p>
+                <p className="text-xs text-red-700 mt-0.5">{credsError}</p>
+                <p className="text-[11px] text-red-600 mt-1">
+                  You can still navigate the rest of the page. Hit Retry once the issue is resolved.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={fetchCredentials} size="sm" variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-100 shrink-0"
+              data-testid="creds-retry-btn"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Retry
+            </Button>
+          </div>
+        )}
 
         {testAllResults && (
           <Card

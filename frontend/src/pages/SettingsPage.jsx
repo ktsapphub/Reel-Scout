@@ -73,6 +73,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
   }, [api]);
 
   useEffect(() => {
+    // Initial data load on mount — fetchers are stable via useCallback
     fetchBuildInfo();
     fetchCredentials();
     fetchHealthSummary();
@@ -200,7 +201,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.3</p>
+              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.11</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

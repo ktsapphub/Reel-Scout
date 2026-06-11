@@ -211,7 +211,7 @@ class TestRegression:
     def test_build_info_version_bumped(self, headers):
         r = requests.get(f"{BASE_URL}/api/settings/build-info", headers=headers, timeout=15)
         assert r.status_code == 200
-        assert r.json().get("version") == "2.2.0"
+        assert r.json().get("version") == "2.6.11"
 
     def test_history_endpoint(self, headers):
         r = requests.get(f"{BASE_URL}/api/history", headers=headers, timeout=15)

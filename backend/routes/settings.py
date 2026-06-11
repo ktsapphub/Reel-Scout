@@ -22,7 +22,7 @@ from services.health_service import (
 
 router = APIRouter(prefix="/api")
 
-APP_VERSION = "2.6.11"
+APP_VERSION = "2.6.12"
 BUILD_DATE = "2026-06-08"
 
 
@@ -258,6 +258,56 @@ async def test_credential_endpoint(key: str, user_email: str = Depends(get_curre
         return {"ok": False, "error": "No value saved for this credential — paste a value and click Save first"}
     await log_audit("credential_tested", user_email, {"key": key})
     return await _test_credential(key, current)
+
+
+@router.post("/settings/credentials/test-all")
+async def test_all_credentials_endpoint(user_email: str = Depends(get_current_user)):
+    """Run live validity checks for every editable credential in parallel.
+    Returns a consolidated panel of results so users can verify all tokens at once.
+    """
+    import asyncio
+    keys = list(EDITABLE_CREDENTIALS.keys())
+
+    async def run_one(key: str):
+        meta = EDITABLE_CREDENTIALS.get(key, {})
+        current = get_runtime_value(key)
+        if not current:
+            return {
+                "key": key,
+                "service": meta.get("service"),
+                "label": meta.get("label", key),
+                "ok": False,
+                "skipped": True,
+                "error": "No value saved — paste a value and click Save first",
+                "details": {},
+            }
+        result = await _test_credential(key, current)
+        return {
+            "key": key,
+            "service": meta.get("service"),
+            "label": meta.get("label", key),
+            "ok": bool(result.get("ok")),
+            "skipped": False,
+            "error": result.get("error"),
+            "details": result.get("details", {}),
+        }
+
+    results = await asyncio.gather(*(run_one(k) for k in keys), return_exceptions=False)
+    tested = sum(1 for r in results if not r["skipped"])
+    passed = sum(1 for r in results if r["ok"])
+    failed = tested - passed
+    await log_audit("credentials_tested_all", user_email, {
+        "total": len(results), "passed": passed, "failed": failed,
+    })
+    return {
+        "ok": failed == 0 and tested > 0,
+        "tested_at": datetime.now(timezone.utc).isoformat(),
+        "total": len(results),
+        "tested": tested,
+        "passed": passed,
+        "failed": failed,
+        "results": results,
+    }
 
 
 async def _test_credential(key: str, value: str) -> dict:

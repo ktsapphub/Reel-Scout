@@ -69,6 +69,12 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.12 — 2026-02 fork) "Test all credentials" one-click button**:
+  - **New `POST /api/settings/credentials/test-all`** — runs every editable credential's live validity check in parallel (`asyncio.gather`) and returns a consolidated result with passed/failed/skipped counts + per-credential details (account username, cloud_name, error messages).
+  - **New blue-outline "Test all credentials" button** next to "Verify All Connections" on the Settings page.
+  - **Consolidated results panel** appears below the header — green border when all pass, red when any fail, slate when nothing tested. Each row shows the credential label, service, valid/invalid/skipped badge, and live details (e.g., "Account: mydatejar" or "Apify validation failed (HTTP 401)"). Dismissable via X button.
+  - Audit-logged as `credentials_tested_all` with total/passed/failed counts.
+  - Verified via curl: 5 credentials tested in parallel; APIFY_TOKEN correctly flagged invalid, other 4 valid. Version badge bumped to v2.6.12.
 - [x] **(v2.6.11 — 2026-02 fork) Settings — live verify-on-mount + Used-by mapping + Test now + ESLint fix**:
   - **Live verify-on-mount**: When health-status cache is stale (>5min) or failed, Settings auto-triggers fresh checks.
   - **"Used by" badges** on each credential row (Hashtag Token → Hashtag Scraper, Username Token → Profile Scraper + Reel Scraper, etc.).

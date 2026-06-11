@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import {
   Instagram, ArrowLeft, Wifi, Cloud, Database,
   Loader2, User, Code, Zap, Shield, Hash,
+  CheckCircle2, XCircle, MinusCircle, KeyRound, X,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -41,6 +42,9 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
 
   const [credentials, setCredentials] = useState([]);
   const [healthSummary, setHealthSummary] = useState({});
+
+  const [testingAll, setTestingAll] = useState(false);
+  const [testAllResults, setTestAllResults] = useState(null);
 
   const api = useMemo(() => axios.create({
     baseURL: `${backendUrl}/api`,
@@ -120,6 +124,26 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
   const checkAll = useCallback(async () => {
     await Promise.all([checkApify(), checkCloudinary(), checkMongo()]);
   }, [checkApify, checkCloudinary, checkMongo]);
+
+  const testAllCredentials = useCallback(async () => {
+    setTestingAll(true);
+    try {
+      const response = await api.post("/settings/credentials/test-all");
+      setTestAllResults(response.data);
+      const { passed, failed, tested } = response.data;
+      if (failed === 0 && tested > 0) {
+        toast.success(`All ${passed} credentials valid`);
+      } else if (failed > 0) {
+        toast.error(`${failed} of ${tested} credentials failed`);
+      } else {
+        toast.info("No credentials saved to test");
+      }
+    } catch {
+      toast.error("Failed to run test-all");
+    } finally {
+      setTestingAll(false);
+    }
+  }, [api]);
 
   // --- credential save/reset ---
 
@@ -201,7 +225,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.11</p>
+              <p className="text-xs text-slate-500">Connections & Configuration · v2.6.12</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -219,25 +243,113 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-        <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl flex-wrap gap-3">
           <div>
             <h2 className="text-base font-semibold text-slate-900">Service Connections</h2>
             <p className="text-sm text-slate-500 mt-0.5">
               Verify connections, view & update credentials. Each verified check stays valid for the shown window.
             </p>
           </div>
-          <Button
-            onClick={checkAll}
-            disabled={checkingApify || checkingCloudinary || checkingMongo}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            data-testid="verify-all-btn"
-          >
-            {(checkingApify || checkingCloudinary || checkingMongo)
-              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              : <Shield className="w-4 h-4 mr-2" />}
-            Verify All Connections
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              onClick={testAllCredentials}
+              disabled={testingAll}
+              variant="outline"
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+              data-testid="test-all-credentials-btn"
+            >
+              {testingAll
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <KeyRound className="w-4 h-4 mr-2" />}
+              Test all credentials
+            </Button>
+            <Button
+              onClick={checkAll}
+              disabled={checkingApify || checkingCloudinary || checkingMongo}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="verify-all-btn"
+            >
+              {(checkingApify || checkingCloudinary || checkingMongo)
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <Shield className="w-4 h-4 mr-2" />}
+              Verify All Connections
+            </Button>
+          </div>
         </div>
+
+        {testAllResults && (
+          <Card
+            className={`border-2 ${testAllResults.failed === 0 && testAllResults.tested > 0 ? "border-green-200" : testAllResults.failed > 0 ? "border-red-200" : "border-slate-200"}`}
+            data-testid="test-all-results-panel"
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-blue-600" />
+                  Test-all Results
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {testAllResults.passed} / {testAllResults.tested} passed
+                  </Badge>
+                  {testAllResults.total - testAllResults.tested > 0 && (
+                    <Badge variant="outline" className="text-xs text-slate-500">
+                      {testAllResults.total - testAllResults.tested} skipped
+                    </Badge>
+                  )}
+                </CardTitle>
+                <Button
+                  size="sm" variant="ghost"
+                  onClick={() => setTestAllResults(null)}
+                  className="h-7 w-7 p-0"
+                  data-testid="test-all-dismiss-btn"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1.5">
+                {testAllResults.results.map((r) => {
+                  const Icon = r.skipped ? MinusCircle : (r.ok ? CheckCircle2 : XCircle);
+                  const color = r.skipped ? "text-slate-400" : (r.ok ? "text-green-600" : "text-red-600");
+                  const bg = r.skipped ? "bg-slate-50" : (r.ok ? "bg-green-50" : "bg-red-50");
+                  return (
+                    <div
+                      key={r.key}
+                      className={`flex items-start justify-between gap-3 p-2.5 rounded-lg border border-slate-100 ${bg}`}
+                      data-testid={`test-all-row-${r.key}`}
+                    >
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${color}`} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-800 truncate">
+                            {r.label} <span className="text-slate-400 font-normal">· {r.service}</span>
+                          </p>
+                          {r.error && (
+                            <p className="text-xs text-red-600 mt-0.5 break-words">{r.error}</p>
+                          )}
+                          {r.ok && r.details?.username && (
+                            <p className="text-xs text-slate-500 mt-0.5">Account: <span className="font-medium text-slate-700">{r.details.username}</span></p>
+                          )}
+                          {r.ok && r.details?.cloud_name && (
+                            <p className="text-xs text-slate-500 mt-0.5">Cloud: <span className="font-medium text-slate-700">{r.details.cloud_name}</span></p>
+                          )}
+                        </div>
+                      </div>
+                      <Badge
+                        className={`text-[10px] shrink-0 ${r.skipped ? "bg-slate-200 text-slate-600" : (r.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}`}
+                      >
+                        {r.skipped ? "Skipped" : (r.ok ? "Valid" : "Invalid")}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-3">
+                Ran in parallel against live providers at {new Date(testAllResults.tested_at).toLocaleTimeString()}. Audit-logged.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-4">
           <ApifyConnectionGuide />

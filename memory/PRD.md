@@ -69,6 +69,11 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.13 — 2026-02 fork) Partial-result upload + export verified end-to-end**:
+  - Confirmed via pytest (`/app/backend/tests/test_iter13_partial_upload_export.py`) that a partial reel returned by `POST /api/reels/search/stop/{run_id}` flows through `POST /api/reels/upload` (200 OK, completed=1, real Cloudinary URL) and `POST /api/reels/export` (200, text/csv with reel_url + cloudinary_url). **There is no "search must be COMPLETED" gate anywhere** in the backend or frontend.
+  - Frontend wiring: `useSearchPolling.stopSearch` returns `partial_results`; `DashboardPage.handleStopSearch` calls `setResults(partial_results)`; `ResultsGrid` Upload/Export buttons are disabled **only** on empty selection.
+  - `SearchProgress.jsx` 4-stage timeline (Starting → Scraping → Filtering → Complete) has full data-testid coverage (`search-progress`, `stage-{starting,scraping,filtering,complete}`, `items-discovered`) with animate-spin on active stage and emerald connector between completed stages. Stage transitions live-track `progress`/`items_processed`.
+  - Backend `stop_search` already warms the History cache via `save_to_cache(cache_key, partial_results)` so aborted runs are recoverable from the "Previously Pulled" section without re-spending Apify credits.
 - [x] **(v2.6.12 — 2026-02 fork) "Test all credentials" one-click button**:
   - **New `POST /api/settings/credentials/test-all`** — runs every editable credential's live validity check in parallel (`asyncio.gather`) and returns a consolidated result with passed/failed/skipped counts + per-credential details (account username, cloud_name, error messages).
   - **New blue-outline "Test all credentials" button** next to "Verify All Connections" on the Settings page.

@@ -69,6 +69,18 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.15 — 2026-02 fork) Rebrand to "Reel Scout" + Instagram-inspired landing page**:
+  - **Name**: `IG Reel Finder` → `Reel Scout` everywhere it faces the user: page headers (Dashboard, History, Settings, Audit Log), browser tab title, backend `build-info.app_name`, FastAPI title, backend pytest expectation. Internal identifiers (encryption salt, cache-store name) intentionally left untouched to avoid invalidating existing data.
+  - **Landing page** (`/app/frontend/src/pages/LandingPage.jsx`): fluid, single-page marketing experience with:
+    - Sticky glass top bar with Instagram-gradient logo + "Sign in" CTA
+    - Hero with animated blob background, grain overlay, `Reels` in Instagram gradient text, and a clear pitch: search by profile / direct URL / hashtag
+    - Three mode cards (User profile, Direct reel URL, Hashtag) with icons, plain-English descriptions, and example inputs
+    - Dark "What you get back" strip with 6 feature bullets (reel URL/metadata, one-click Cloudinary upload, CSV export, history + resume, allowlist-gated audit-logged access)
+    - Sign-in section with the login form inside a gradient-bordered card
+    - Simple footer with brand credit + "Powered by Apify + Cloudinary"
+  - **Color system**: new `/app/frontend/src/App.css` defines Instagram brand tokens (`--ig-yellow #FEDA75 → --ig-orange #FA7E1E → --ig-pink #D62976 → --ig-magenta #962FBF → --ig-purple #4F5BD5`) with reusable utility classes: `.ig-gradient`, `.ig-gradient-radial`, `.ig-gradient-text`, `.ig-border`, `.ig-btn`, `.ig-blob`, `.ig-grain`, `.ig-float`, `.ig-fade-up`. All page-header logos updated to use `.ig-gradient` with soft pink shadow.
+  - Login form uses `type=email` + `autoComplete` for browser-fill compatibility and now uses gradient submit button.
+  - Backend `APP_VERSION` bumped to `2.6.15`; FastAPI title updated. Frontend version badge in Settings now reads v2.6.15.
 - [x] **(v2.6.14 — 2026-02 fork) Settings page never serves stale state + credentials are always editable**:
   - **Cache-busting on every Settings GET**: every `/settings/*` fetch (credentials, health-status, build-info) appends `?_t=${Date.now()}` and sends `Cache-Control: no-cache, no-store, must-revalidate` + `Pragma: no-cache` request headers via the axios instance. Browser/CDN/proxy caches are bypassed.
   - **Auto-refetch on tab focus / visibility change**: when the user returns to the Settings tab after being away (e.g., updated a token in Apify Console), credentials + health auto-refresh. Wired via `visibilitychange` + `focus` listeners.

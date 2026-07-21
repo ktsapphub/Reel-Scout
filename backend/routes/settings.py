@@ -22,14 +22,14 @@ from services.health_service import (
 
 router = APIRouter(prefix="/api")
 
-APP_VERSION = "2.6.14"
+APP_VERSION = "2.6.15"
 BUILD_DATE = "2026-06-08"
 
 
 @router.get("/settings/build-info")
 async def get_build_info(user_email: str = Depends(get_current_user)):
     return {
-        "app_name": "IG Reel Finder",
+        "app_name": "Reel Scout",
         "version": APP_VERSION,
         "build_date": BUILD_DATE,
         "environment": "preview",

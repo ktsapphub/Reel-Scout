@@ -4,7 +4,7 @@ import os
 
 from config import mongo_client, logger, apply_overrides
 
-app = FastAPI(title="IG Reel Finder API", version="2.0.0")
+app = FastAPI(title="Reel Scout API", version="2.6.15")
 
 # Import and include routers
 from routes.auth import router as auth_router

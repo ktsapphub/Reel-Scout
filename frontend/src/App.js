@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import LoginPage from "@/pages/LoginPage";
+import LandingPage from "@/pages/LandingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HistoryPage from "@/pages/HistoryPage";
 import AuditLogPage from "@/pages/AuditLogPage";
@@ -52,7 +52,7 @@ function App() {
             path="/login"
             element={
               token ? <Navigate to="/" replace />
-                : <LoginPage onLogin={handleLogin} backendUrl={BACKEND_URL} />
+                : <LandingPage onLogin={handleLogin} backendUrl={BACKEND_URL} />
             }
           />
           <Route path="/" element={requireAuth(

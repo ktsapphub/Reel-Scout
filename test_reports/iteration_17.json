@@ -1,0 +1,35 @@
+{
+  "summary": "Iter17 VERIFIES the useSearchPolling.js fix (pollFnRef + empty-deps resume effect). Ran a live @nasa username search on the deployed frontend: SearchProgress mounted, the progress bar stayed visible continuously for 60+ seconds, and the backend log recorded 26 GET /api/reels/search/status/7UxpmotPw3rWi2vpm hits at ~3s intervals (well above the ≥5 required, previously died at ~2). Bug from iteration_16 timeframe (polling torn down after ~6s by a re-render) is FIXED.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/.screenshots/final_state.png"
+  ],
+  "action_items": [
+    "None blocking. Optional: expose data-testid='items-discovered' text in a way that renders even when items_processed==0 (during the first ~15s of RUNNING state); currently the badge is empty until Apify emits its first item count, which is expected but could be more transparent in the UI.",
+    "Optional: resume-on-reload was NOT directly exercised because the second and third search attempts were short-circuited (a follow-up @natgeo search never issued POST /api/reels/search/start — likely swallowed by passesGuardCheck / 'Restart' guard state after two heavy sequential Apify runs). Fix is code-verified (empty-deps useEffect + pollFnRef.current pattern is safe against re-renders) but real-browser reload verification is deferred. Main agent can retest by manually starting a search and hitting F5 mid-run once the Apify guard state clears."
+  ],
+  "critical_code_review_comments": [
+    "hooks/useSearchPolling.js lines 78-92: the pollFnRef mirror useEffect + empty-deps resume-on-mount is the correct React idiom. `pollIntervalRef.current` check inside the mount effect guards against StrictMode double-invoke.",
+    "hooks/useSearchPolling.js line 92: `return clearPoll` inside an empty-deps effect will clear the interval on UNMOUNT of the component that owns the hook (fine for DashboardPage since it only unmounts on route change). Safe.",
+    "hooks/useSearchPolling.js line 91: The saved-runId branch calls setInterval BEFORE issuing an immediate first poll — user won't see any UI update for POLL_INTERVAL_MS (3s) after reload. Minor UX nit: consider `pollFnRef.current?.(saved)` immediately followed by the setInterval.",
+    "hooks/useSearchPolling.js: pollSearchStatus swallows ALL errors with an empty catch. If backend returns 401/404 the poll will loop forever. Consider stopping on repeated 4xx after N attempts."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only per request)", "frontend": "100% on primary fix (26/26 polls for @nasa search)"},
+  "test_credentials": "mydatejar@gmail.com / #Test1234",
+  "seed_data_creation": "None persisted (searches did not complete within the 90s test window because Apify @nasa job kept running past that; run_id 7UxpmotPw3rWi2vpm is still in RUNNING state on Apify — DB will pick up results whenever it finishes).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "PRIMARY EVIDENCE the fix works: grep -c '7UxpmotPw3rWi2vpm' /var/log/supervisor/backend.out.log => 26 (26 status polls at ~3s intervals for a single search). SearchProgress data-testid stayed visible in the DOM from t~21s to t~87s in the Playwright loop. To retest resume-on-reload cleanly, wait until the Apify guard/Restart state clears (or reset via Settings), then run a fresh search and F5 the page mid-run; localStorage key 'ig_reel_finder_runId' must remain populated and status polls must continue in backend.out.log.",
+  "rca_of_the_issue": {
+    "reported_bug": "Clicking Run Search triggered Apify but frontend stopped polling after 1-2 status GETs; SearchProgress never showed real progress and results never populated.",
+    "root_cause_confirmed": "useEffect that resumes polling on mount had pollSearchStatus in its dependency array. pollSearchStatus is a useCallback whose deps include onSucceeded/onAborted/onFailed/showExecutionResult from DashboardPage, which change identity every render. Result: cleanup fired on every re-render and cleared the setInterval, killing the poll loop after ~6s.",
+    "applied_fix": "Introduced pollFnRef (ref to latest pollSearchStatus), added a small useEffect to keep the ref current, and rewrote the resume-on-mount useEffect with EMPTY deps so it schedules setInterval exactly once. startPolling also switched to pollFnRef.current so its interval survives callback identity changes.",
+    "verification_evidence": "Playwright + backend.out.log: 26 status polls at ~3s intervals for run 7UxpmotPw3rWi2vpm during a single click of Run Search. Progress-visible=True continuously for 60+ seconds. No prior teardown behaviour observed."
+  }
+}

@@ -17,6 +17,12 @@ export function useSearchPolling({ api, onSucceeded, onAborted, onFailed, showEx
   const [estimatedTime, setEstimatedTime] = useState(0);
   const [itemsProcessed, setItemsProcessed] = useState(0);
   const pollIntervalRef = useRef(null);
+  // Ref-backed pollSearchStatus so the resume-on-mount effect can call the
+  // LATEST version without re-firing every time any callback identity changes.
+  // Previously the effect had pollSearchStatus in its deps → each re-render
+  // (which happens on every DashboardPage prop change) tore down the active
+  // setInterval, killing the search polling after just 1-2 ticks.
+  const pollFnRef = useRef(null);
 
   // Persist runId/progress for resume across reloads
   useEffect(() => {
@@ -66,16 +72,24 @@ export function useSearchPolling({ api, onSucceeded, onAborted, onFailed, showEx
     }
   }, [api, clearPoll, onSucceeded, onAborted, onFailed, showExecutionResult]);
 
-  // Resume polling on mount when a saved runId is present
+  // Keep the ref pointed at the latest pollSearchStatus, so any interval
+  // scheduled by startPolling / resume-on-mount always calls the current
+  // version — WITHOUT needing to re-create the interval.
+  useEffect(() => {
+    pollFnRef.current = pollSearchStatus;
+  }, [pollSearchStatus]);
+
+  // Resume polling on mount when a saved runId is present.
+  // Empty deps: runs exactly once, does NOT get torn down when callbacks change.
   useEffect(() => {
     const saved = safeGet(RUN_ID_KEY);
     if (saved && !pollIntervalRef.current) {
       setRunId(saved);
       setSearching(true);
-      pollIntervalRef.current = setInterval(() => pollSearchStatus(saved), POLL_INTERVAL_MS);
+      pollIntervalRef.current = setInterval(() => pollFnRef.current?.(saved), POLL_INTERVAL_MS);
     }
     return clearPoll;
-  }, [pollSearchStatus, clearPoll]);
+  }, []);
 
   const startPolling = useCallback((newRunId, initialEstimate = 0) => {
     setRunId(newRunId);
@@ -84,8 +98,8 @@ export function useSearchPolling({ api, onSucceeded, onAborted, onFailed, showEx
     setItemsProcessed(0);
     if (initialEstimate) setEstimatedTime(initialEstimate);
     clearPoll();
-    pollIntervalRef.current = setInterval(() => pollSearchStatus(newRunId), POLL_INTERVAL_MS);
-  }, [pollSearchStatus, clearPoll]);
+    pollIntervalRef.current = setInterval(() => pollFnRef.current?.(newRunId), POLL_INTERVAL_MS);
+  }, [clearPoll]);
 
   const stopSearch = useCallback(async () => {
     if (!runId) return;

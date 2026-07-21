@@ -445,7 +445,13 @@ def _token_for_search(search_type: str) -> Optional[str]:
 # between our run-start and our first status poll.
 
 SYNC_PATH_MAX_RESULTS = 25
-SYNC_PATH_TIMEOUT_SEC = 90.0
+# Cloudflare edge times out at ~100s. Cap the sync path well below that so
+# a slow Apify sync call doesn't consume the whole client-facing budget.
+# When we hit this ceiling we fall back to async which returns immediately
+# with a run_id (client then polls). 25s is empirically enough for fast
+# actor runs (username/post_url on cached IG accounts) without pushing the
+# request anywhere near the CF ceiling.
+SYNC_PATH_TIMEOUT_SEC = 25.0
 
 
 def _should_use_sync_path(request: SearchRequest) -> bool:
@@ -793,16 +799,25 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
 
 @router.post("/reels/upload", response_model=UploadResponse)
 async def upload_reels(request: UploadRequest, user_email: str = Depends(get_current_user)):
-    items = []
-    completed = 0
-    failed = 0
-    for reel in request.reels:
-        result = await upload_reel_to_cloudinary(reel, user_email)
-        items.append(UploadProgressItem(**result))
-        if result["status"] == "completed":
-            completed += 1
-        else:
-            failed += 1
+    # Cloudflare's edge times out at ~100s. Uploading reels sequentially can
+    # easily exceed that when the batch is 10+ reels (each upload = 5-8s).
+    # Parallelize with a bounded semaphore so we don't hammer Cloudinary either.
+    import asyncio
+    UPLOAD_CONCURRENCY = 5
+    sem = asyncio.Semaphore(UPLOAD_CONCURRENCY)
+
+    async def _bounded(reel):
+        async with sem:
+            return await upload_reel_to_cloudinary(reel, user_email)
+
+    raw_results = await asyncio.gather(
+        *(_bounded(reel) for reel in request.reels),
+        return_exceptions=False,
+    )
+
+    items = [UploadProgressItem(**r) for r in raw_results]
+    completed = sum(1 for r in raw_results if r.get("status") == "completed")
+    failed = len(raw_results) - completed
     await log_audit("upload", user_email, {"total": len(request.reels), "completed": completed, "failed": failed})
     return UploadResponse(total=len(request.reels), completed=completed, failed=failed, items=items)
 

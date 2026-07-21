@@ -90,7 +90,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
             <ReelScoutLogo className="w-9 h-9" />
             <div className="leading-tight">
               <p className="text-base font-bold tracking-tight">Reel Scout</p>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 -mt-0.5">for My Date Jar</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 -mt-0.5">Instagram Reel scraper</p>
             </div>
           </div>
           <Button
@@ -210,7 +210,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
               <p className="text-xs font-bold uppercase tracking-widest text-pink-600">Sign in</p>
               <h2 className="mt-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Ready when you are.</h2>
               <p className="mt-2 text-sm text-slate-600 max-w-md">
-                Sign in with your My Date Jar allowlisted email. If you don&apos;t have access yet, ping the team lead.
+                Sign in with your allowlisted email. If you don&apos;t have access yet, ping the team lead.
               </p>
             </div>
             <Button
@@ -231,7 +231,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
             <ReelScoutLogo className="w-6 h-6" />
             <span className="font-semibold text-slate-700">Reel Scout</span>
             <span className="text-slate-300">·</span>
-            <span>Internal tool for My Date Jar</span>
+            <span>Internal Instagram Reel scraping tool</span>
           </div>
           <span>Powered by Apify + Cloudinary</span>
         </div>
@@ -251,7 +251,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
                 </div>
                 <DialogTitle className="text-2xl font-bold text-slate-900">Sign in to Reel Scout</DialogTitle>
                 <DialogDescription className="text-sm text-slate-500">
-                  Allowlisted My Date Jar team access only
+                  Allowlisted team access only
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4" data-testid="landing-signin-form">
@@ -259,7 +259,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
                   <Label htmlFor="email" className="text-slate-700 font-semibold text-xs uppercase tracking-wide">Email</Label>
                   <Input
                     id="email" type="email" autoComplete="email"
-                    placeholder="you@mydatejar.com"
+                    placeholder="you@example.com"
                     value={email} onChange={(e) => setEmail(e.target.value)}
                     className="h-12 border-slate-200 focus:border-pink-500 focus:ring-pink-500/20"
                     data-testid="login-email-input"

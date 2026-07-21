@@ -510,7 +510,7 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">Reel Scout</h1>
-                <p className="text-xs text-slate-500">My Date Jar</p>
+              <p className="text-xs text-slate-500">Instagram Reel scraper</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

@@ -45,7 +45,7 @@ export default function LoginPage({ onLogin, backendUrl }) {
           <div>
             <CardTitle className="text-2xl font-bold text-slate-900">IG Reel Finder</CardTitle>
             <CardDescription className="text-slate-500 mt-1">
-              Internal tool for My Date Jar
+              Internal Instagram Reel scraping tool
             </CardDescription>
           </div>
         </CardHeader>
@@ -56,7 +56,7 @@ export default function LoginPage({ onLogin, backendUrl }) {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@mydatejar.com"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12 border-slate-200 focus:border-blue-500"

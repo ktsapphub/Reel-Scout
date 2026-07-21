@@ -1,4 +1,7 @@
 import { useState } from "react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,8 +46,8 @@ function ModeCard({ icon: Icon, title, description, example, testId }) {
 
 function FeatureBullet({ icon: Icon, text }) {
   return (
-    <li className="flex items-center gap-2.5 text-sm text-slate-700">
-      <span className="w-6 h-6 rounded-full ig-gradient flex items-center justify-center shrink-0">
+    <li className="flex items-center gap-2.5 text-sm text-slate-100">
+      <span className="w-6 h-6 rounded-full ig-gradient flex items-center justify-center shrink-0 shadow-md shadow-pink-500/30">
         <Icon className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
       </span>
       {text}
@@ -56,10 +59,9 @@ export default function LandingPage({ onLogin, backendUrl }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signinOpen, setSigninOpen] = useState(false);
 
-  const scrollToLogin = () => {
-    document.getElementById("signin")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  const openSignin = () => setSigninOpen(true);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,7 +94,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
             </div>
           </div>
           <Button
-            onClick={scrollToLogin}
+            onClick={openSignin}
             className="ig-btn h-10 px-5 rounded-full text-sm font-semibold"
             data-testid="landing-topnav-signin"
           >
@@ -126,7 +128,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
 
             <div className="mt-8 flex flex-wrap items-center gap-3 ig-fade-up ig-delay-3">
               <Button
-                onClick={scrollToLogin}
+                onClick={openSignin}
                 className="ig-btn h-12 px-7 rounded-full text-sm font-semibold"
                 data-testid="landing-hero-signin"
               >
@@ -200,58 +202,24 @@ export default function LandingPage({ onLogin, backendUrl }) {
         </div>
       </section>
 
-      {/* Sign in */}
-      <section id="signin" className="max-w-6xl mx-auto px-5 sm:px-8 pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-center">
-          <div className="lg:col-span-2 space-y-3">
-            <p className="text-xs font-bold uppercase tracking-widest text-pink-600">Sign in</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Ready when you are.</h2>
-            <p className="text-sm text-slate-600 max-w-md">
-              Sign in with your My Date Jar allowlisted email. If you don&apos;t have access yet, ping the team lead.
-            </p>
-          </div>
-
-          <div className="lg:col-span-3">
-            <div className="ig-border rounded-3xl">
-              <div className="bg-white rounded-3xl p-6 sm:p-8">
-                <form onSubmit={handleSubmit} className="space-y-4" data-testid="landing-signin-form">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-slate-700 font-semibold text-xs uppercase tracking-wide">Email</Label>
-                    <Input
-                      id="email" type="email" autoComplete="email"
-                      placeholder="you@mydatejar.com"
-                      value={email} onChange={(e) => setEmail(e.target.value)}
-                      className="h-12 border-slate-200 focus:border-pink-500 focus:ring-pink-500/20"
-                      data-testid="login-email-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="password" className="text-slate-700 font-semibold text-xs uppercase tracking-wide">Password</Label>
-                    <Input
-                      id="password" type="password" autoComplete="current-password"
-                      placeholder="••••••••"
-                      value={password} onChange={(e) => setPassword(e.target.value)}
-                      className="h-12 border-slate-200 focus:border-pink-500 focus:ring-pink-500/20"
-                      data-testid="login-password-input"
-                    />
-                  </div>
-                  <Button
-                    type="submit" disabled={loading}
-                    className="ig-btn w-full h-12 rounded-full text-sm font-semibold mt-2"
-                    data-testid="login-submit-btn"
-                  >
-                    {loading ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Signing in…</>
-                    ) : (
-                      <>Sign in to Reel Scout <ArrowRight className="w-4 h-4 ml-1.5" /></>
-                    )}
-                  </Button>
-                  <p className="text-center text-[11px] text-slate-400 pt-1">
-                    Access restricted to allowlisted team members · audit-logged
-                  </p>
-                </form>
-              </div>
+      {/* CTA banner (replaces the old inline sign-in section) */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-8 pb-24">
+        <div className="rounded-3xl ig-gradient p-[1px]">
+          <div className="rounded-3xl bg-white px-6 sm:px-10 py-10 sm:py-12 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-pink-600">Sign in</p>
+              <h2 className="mt-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Ready when you are.</h2>
+              <p className="mt-2 text-sm text-slate-600 max-w-md">
+                Sign in with your My Date Jar allowlisted email. If you don&apos;t have access yet, ping the team lead.
+              </p>
             </div>
+            <Button
+              onClick={openSignin}
+              className="ig-btn h-12 px-8 rounded-full text-sm font-semibold shrink-0"
+              data-testid="landing-cta-signin"
+            >
+              Sign in to Reel Scout <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
           </div>
         </div>
       </section>
@@ -268,6 +236,65 @@ export default function LandingPage({ onLogin, backendUrl }) {
           <span>Powered by Apify + Cloudinary</span>
         </div>
       </footer>
+
+      {/* Sign-in dialog — pops over the landing page on demand */}
+      <Dialog open={signinOpen} onOpenChange={setSigninOpen}>
+        <DialogContent
+          className="sm:max-w-md p-0 overflow-hidden border-0 bg-transparent shadow-none"
+          data-testid="signin-dialog"
+        >
+          <div className="ig-border rounded-3xl">
+            <div className="bg-white rounded-3xl p-6 sm:p-8">
+              <DialogHeader className="text-center space-y-3 mb-5">
+                <div className="mx-auto">
+                  <ReelScoutLogo className="w-14 h-14" />
+                </div>
+                <DialogTitle className="text-2xl font-bold text-slate-900">Sign in to Reel Scout</DialogTitle>
+                <DialogDescription className="text-sm text-slate-500">
+                  Allowlisted My Date Jar team access only
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4" data-testid="landing-signin-form">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-slate-700 font-semibold text-xs uppercase tracking-wide">Email</Label>
+                  <Input
+                    id="email" type="email" autoComplete="email"
+                    placeholder="you@mydatejar.com"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="h-12 border-slate-200 focus:border-pink-500 focus:ring-pink-500/20"
+                    data-testid="login-email-input"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-slate-700 font-semibold text-xs uppercase tracking-wide">Password</Label>
+                  <Input
+                    id="password" type="password" autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 border-slate-200 focus:border-pink-500 focus:ring-pink-500/20"
+                    data-testid="login-password-input"
+                  />
+                </div>
+                <Button
+                  type="submit" disabled={loading}
+                  className="ig-btn w-full h-12 rounded-full text-sm font-semibold mt-2"
+                  data-testid="login-submit-btn"
+                >
+                  {loading ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Signing in…</>
+                  ) : (
+                    <>Sign in <ArrowRight className="w-4 h-4 ml-1.5" /></>
+                  )}
+                </Button>
+                <p className="text-center text-[11px] text-slate-400 pt-1">
+                  Audit-logged · allowlist-gated
+                </p>
+              </form>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

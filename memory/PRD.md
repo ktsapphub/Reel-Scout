@@ -69,6 +69,10 @@ Build a full-stack INTERNAL web application called "IG Reel Finder" for My Date 
   - MongoDB URL shown read-only (changing it at runtime would disconnect the running app)
   - Audit logs for credential_updated / credential_update_rejected / credential_reset
 - [x] Code quality: SHA256, useCallback/useMemo, extracted helpers, get_runtime_value() pattern
+- [x] **(v2.6.15b — 2026-02 fork) Landing page bug fixes: readable "What you get back" bullets + sign-in modal**:
+  - **Fix 1 (contrast)**: `FeatureBullet` in `LandingPage.jsx` was rendering `text-slate-700` on the `bg-slate-900` "What you get back" strip — invisible. Now uses `text-slate-100` (rgb 241,245,249) on slate-900 (rgb 15,23,42) — high contrast, all six bullets readable. Verified via testing-agent computed-style probe.
+  - **Fix 2 (sign-in UX)**: Inline scroll-to sign-in section removed. Replaced by a compact "Ready when you are" CTA banner (gradient border, single "Sign in to Reel Scout" gradient button) + a **shadcn `Dialog` modal** (`data-testid='signin-dialog'`) that pops on top of the landing page. Modal contains gradient Reel Scout logo, title, subtitle, autofocused email input, password input, and gradient submit button. All three sign-in triggers (top-nav, hero "Get started", mid-page CTA) open the same controlled Dialog. Escape closes it. Successful login redirects to Dashboard.
+  - **Testing agent verification**: iteration_14 report — frontend 100%, no bugs, 3 signin triggers verified, login flow end-to-end verified.
 - [x] **(v2.6.15 — 2026-02 fork) Rebrand to "Reel Scout" + Instagram-inspired landing page**:
   - **Name**: `IG Reel Finder` → `Reel Scout` everywhere it faces the user: page headers (Dashboard, History, Settings, Audit Log), browser tab title, backend `build-info.app_name`, FastAPI title, backend pytest expectation. Internal identifiers (encryption salt, cache-store name) intentionally left untouched to avoid invalidating existing data.
   - **Landing page** (`/app/frontend/src/pages/LandingPage.jsx`): fluid, single-page marketing experience with:

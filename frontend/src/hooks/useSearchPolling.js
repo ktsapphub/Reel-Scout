@@ -89,6 +89,7 @@ export function useSearchPolling({ api, onSucceeded, onAborted, onFailed, showEx
       pollIntervalRef.current = setInterval(() => pollFnRef.current?.(saved), POLL_INTERVAL_MS);
     }
     return clearPoll;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startPolling = useCallback((newRunId, initialEstimate = 0) => {

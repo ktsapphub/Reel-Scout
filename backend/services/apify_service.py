@@ -286,6 +286,7 @@ async def process_apify_results(
     search_type: str = "unknown",
     only_posts_newer_than: Optional[str] = None,
     only_posts_older_than: Optional[str] = None,
+    max_results: Optional[int] = None,
 ) -> List[ReelResult]:
     """Process Apify results into ReelResult objects — ONLY REELS.
 
@@ -293,6 +294,10 @@ async def process_apify_results(
     as a server-side post-filter on each item's timestamp. We do this in addition
     to passing the flags to Apify because the Reel Scraper actor sometimes ignores
     ``onlyPostsOlderThan``.
+
+    ``max_results`` (when provided) is enforced as a HARD server-side cap on the
+    returned reel count. Apify actors occasionally overshoot ``resultsLimit`` and
+    the user is billed per item processed — this cap protects the budget.
     """
     results = []
     seen_ids: set = set()
@@ -360,6 +365,9 @@ async def process_apify_results(
             continue
 
     logger.info(f"Processed {len(results)} reels from {len(items)} items (skipped: {skipped})")
+    if max_results is not None and len(results) > max_results:
+        logger.info(f"Trimming results {len(results)} → {max_results} (server-side max_results cap)")
+        results = results[:max_results]
     return results
 
 

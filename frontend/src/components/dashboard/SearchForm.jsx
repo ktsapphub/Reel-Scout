@@ -355,11 +355,13 @@ export function SearchForm({
                 </SelectContent>
               </Select>
               {!MAX_RESULTS_OPTIONS.includes(maxResults) && (
-                <Input type="number" min="1" max="1000" value={maxResults}
-                  onChange={(e) => setMaxResults(Math.max(1, Math.min(1000, parseInt(e.target.value) || 5)))}
+                <Input type="number" min="1" max="100" value={maxResults}
+                  onChange={(e) => setMaxResults(Math.max(1, Math.min(100, parseInt(e.target.value) || 5)))}
                   className="h-10 w-20 border-slate-200" data-testid="custom-max-results" />
               )}
-              <span className="text-xs text-slate-400">results</span>
+              <span className="text-xs text-slate-400" title="Hard cap enforced server-side to protect your Apify budget">
+                results <span className="text-slate-300">(max 100)</span>
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">

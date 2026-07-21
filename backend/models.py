@@ -18,7 +18,7 @@ class SearchRequest(BaseModel):
     urls: Optional[List[str]] = None
     post_urls: Optional[List[str]] = None  # Individual reel/post URLs (max 10)
     hashtag: Optional[str] = None
-    max_results: int = 25
+    max_results: int = Field(default=25, ge=1, le=100)
     only_posts_newer_than: Optional[str] = None
     only_posts_older_than: Optional[str] = None
     include_tagged_posts: Optional[bool] = False

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="9" time="58.622" timestamp="2026-07-21T16:53:24.468702+00:00" hostname="agent-env-11b8a973-4539-4176-8a75-f40aec1d5062"><testcase classname="tests.test_iter18_budget_cap" name="test_per_profile_limit_helper" time="0.319" /><testcase classname="tests.test_iter18_budget_cap" name="test_process_apify_results_hard_trims" time="0.005" /><testcase classname="tests.test_iter18_budget_cap" name="test_process_apify_results_no_trim_when_under_cap" time="0.001"><failure message="RuntimeError: Event loop is closed">tests/test_iter18_budget_cap.py:93: in test_process_apify_results_no_trim_when_under_cap
+    results = asyncio.run(_run())
+              ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_iter18_budget_cap.py:91: in _run
+    return await process_apify_results(items, "tester@example.com", "username", max_results=25)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+services/apify_service.py:306: in process_apify_results
+    saved_reels = await db.saved_reels.find({}, {"reel_url": 1, "_id": 0}).to_list(10000)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/motor/core.py:1648: in to_list
+    self.get_io_loop(), self._get_more(), self._to_list, length, the_list, future
+                        ^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/motor/core.py:1411: in _get_more
+    return self._refresh()
+           ^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</failure></testcase><testcase classname="tests.test_iter18_budget_cap" name="test_pydantic_rejects_max_results_above_100" time="0.390" /><testcase classname="tests.test_iter18_budget_cap" name="test_pydantic_rejects_max_results_zero" time="0.115" /><testcase classname="tests.test_iter18_budget_cap" name="test_pydantic_accepts_max_results_100" time="1.571" /><testcase classname="tests.test_iter18_budget_cap" name="test_multi_username_logs_per_profile_division" time="1.970" /><testcase classname="tests.test_iter18_budget_cap" name="test_single_username_no_division" time="27.073" /><testcase classname="tests.test_iter18_budget_cap" name="test_hashtag_search_still_works" time="27.009" /></testsuite></testsuites>

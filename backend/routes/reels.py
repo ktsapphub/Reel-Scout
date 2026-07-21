@@ -124,19 +124,36 @@ async def video_proxy(
 
 # --- Search input builders ---
 
+def _per_profile_limit(max_results: int, n_profiles: int) -> int:
+    """Divide the total budget across profiles so aggregate Apify billing ≤ max_results.
+
+    The Reel/Profile Scraper interprets ``resultsLimit`` as PER PROFILE. Without
+    this division a search for 3 usernames with max_results=25 would pull (and
+    bill) 75 items. We ceil-divide so we still get slightly more than requested,
+    then hard-trim in process_apify_results.
+    """
+    import math
+    return max(1, math.ceil(max_results / max(1, n_profiles)))
+
+
 def _build_username_input(request: SearchRequest) -> tuple:
     """Build Apify input and cache key for username search. Returns (actor_id, apify_input, cache_key)."""
     if not request.usernames or len(request.usernames) == 0:
         raise HTTPException(status_code=400, detail="At least one username required")
     cache_key = generate_cache_key("username", usernames=request.usernames, max_results=request.max_results)
+    per_profile = _per_profile_limit(request.max_results, len(request.usernames))
     apify_input = {
         "username": request.usernames,
-        "resultsLimit": request.max_results,
+        "resultsLimit": per_profile,
         "skipPinnedPosts": True,
         "includeSharesCount": False,
         "includeTranscript": True,
         "includeDownloadedVideo": True,
     }
+    logger.info(
+        f"Username search: {len(request.usernames)} handles, "
+        f"user cap={request.max_results}, per-profile Apify limit={per_profile}"
+    )
     if request.only_posts_newer_than:
         apify_input["onlyPostsNewerThan"] = request.only_posts_newer_than
     if request.only_posts_older_than:
@@ -170,9 +187,10 @@ def _build_url_input(request: SearchRequest) -> tuple:
     if not usernames:
         return None, None, None  # caller handles error response
     cache_key = generate_cache_key("username", usernames=usernames, max_results=request.max_results)
+    per_profile = _per_profile_limit(request.max_results, len(usernames))
     apify_input = {
         "username": usernames,
-        "resultsLimit": request.max_results,
+        "resultsLimit": per_profile,
         "skipPinnedPosts": True,
         "includeSharesCount": False,
         "includeTranscript": True,
@@ -182,7 +200,10 @@ def _build_url_input(request: SearchRequest) -> tuple:
         apify_input["onlyPostsNewerThan"] = request.only_posts_newer_than
     if request.only_posts_older_than:
         apify_input["onlyPostsOlderThan"] = request.only_posts_older_than
-    logger.info(f"Extracted usernames from URLs: {usernames}")
+    logger.info(
+        f"URL search: {len(usernames)} usernames extracted, "
+        f"user cap={request.max_results}, per-profile Apify limit={per_profile}"
+    )
     return APIFY_ACTOR_ID, apify_input, cache_key
 
 
@@ -482,6 +503,7 @@ async def _try_sync_run(
         raw_items, user_email, request.search_type,
         only_posts_newer_than=request.only_posts_newer_than,
         only_posts_older_than=request.only_posts_older_than,
+        max_results=request.max_results,
     )
     if cache_key and results:
         await save_to_cache(cache_key, results, search_config=build_search_config(request))
@@ -707,6 +729,7 @@ async def get_search_status(run_id: str, user_email: str = Depends(get_current_u
                     dataset_response.json(), user_email, search_type,
                     only_posts_newer_than=run_info.get("only_posts_newer_than"),
                     only_posts_older_than=run_info.get("only_posts_older_than"),
+                    max_results=run_info.get("max_results"),
                 )
                 if cache_key and results:
                     await save_to_cache(cache_key, results, search_config=run_info.get("search_config"))
@@ -761,6 +784,7 @@ async def stop_search(run_id: str, user_email: str = Depends(get_current_user)):
                                 items, user_email, search_type,
                                 only_posts_newer_than=run_info.get("only_posts_newer_than"),
                                 only_posts_older_than=run_info.get("only_posts_older_than"),
+                                max_results=run_info.get("max_results"),
                             )
             except Exception as e:
                 logger.warning(f"Could not retrieve partial results: {e}")

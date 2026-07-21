@@ -35,7 +35,7 @@ async def get_build_info(user_email: str = Depends(get_current_user)):
         "environment": "preview",
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "framework": "FastAPI",
-        "frontend": "React 18 + Tailwind CSS + shadcn/ui",
+        "frontend": "React 19 + React Router 7 + Tailwind CSS + shadcn/ui",
         "database": "MongoDB",
         "integrations": {
             "apify": {
@@ -43,6 +43,7 @@ async def get_build_info(user_email: str = Depends(get_current_user)):
                     "username_scraper": {"id": APIFY_ACTOR_ID, "name": "Instagram Profile Scraper"},
                     "reel_scraper": {"id": APIFY_REEL_SCRAPER_ID, "name": "Instagram Reel Scraper"},
                     "hashtag_scraper": {"id": APIFY_HASHTAG_ACTOR_ID, "name": "Instagram Hashtag Scraper"},
+                    "post_url_scraper": {"id": "apify~instagram-scraper", "name": "Instagram Scraper (Direct Post URL)"},
                 },
                 "hashtag_token_configured": bool(get_runtime_value("APIFY_TOKEN")),
                 "username_token_configured": bool(get_runtime_value("APIFY_USERNAME_TOKEN")),
@@ -54,11 +55,21 @@ async def get_build_info(user_email: str = Depends(get_current_user)):
             },
         },
         "features": [
-            "Username Search", "Profile URL Search", "Hashtag Search",
-            "Cloudinary Upload (f_auto/q_auto/vc_auto)", "CSV Export",
-            "Date Range Filter", "Search Caching (24h TTL)",
-            "Stop Search / Partial Results", "Audit Logging",
-            "Editable Credentials (DB Override)",
+            "Username Search",
+            "Profile URL Search",
+            "Hashtag Search",
+            "Direct Post URL Search (up to 10 URLs)",
+            "Active Search-Method Banner",
+            "Cloudinary Upload (f_auto / q_auto / vc_auto)",
+            "In-app Reel Playback via CORS-safe Video Proxy",
+            "CSV Export (partial + completed searches)",
+            "Date Range Filter",
+            "Search Caching (24h TTL)",
+            "Stop Search / Partial Results (uploadable + exportable)",
+            "Resume / Re-run from History (auto-prefills SearchForm)",
+            "Saved Search Presets",
+            "Audit Logging",
+            "Editable Credentials (DB Override) + Test All Credentials",
         ],
     }
 

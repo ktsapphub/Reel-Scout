@@ -48,6 +48,7 @@ import {
   Check,
   RotateCcw,
 } from "lucide-react";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import axios from "axios";
 
 import { ReelStatusBadges } from "@/components/history/ReelStatusBadges";
@@ -616,8 +617,8 @@ export default function HistoryPage({ token, userEmail, onLogout, backendUrl }) 
               <Instagram className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Reel Scout</h1>
-              <p className="text-xs text-slate-500">Instagram Reel scraper</p>
+              <h1 className="text-xl font-bold text-slate-900">{BRAND_NAME}</h1>
+              <p className="text-xs text-slate-500">{BRAND_TAGLINE}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

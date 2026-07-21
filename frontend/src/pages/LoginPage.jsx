@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Instagram, Loader2 } from "lucide-react";
 import axios from "axios";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 export default function LoginPage({ onLogin, backendUrl }) {
   const [email, setEmail] = useState("");
@@ -43,9 +44,9 @@ export default function LoginPage({ onLogin, backendUrl }) {
             <Instagram className="w-8 h-8 text-white" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold text-slate-900">IG Reel Finder</CardTitle>
+            <CardTitle className="text-2xl font-bold text-slate-900">{BRAND_NAME}</CardTitle>
             <CardDescription className="text-slate-500 mt-1">
-              Internal Instagram Reel scraping tool
+              {BRAND_TAGLINE}
             </CardDescription>
           </div>
         </CardHeader>

@@ -11,6 +11,7 @@ import {
   UploadCloud, ClipboardList, ArrowRight, Sparkles, ShieldCheck,
 } from "lucide-react";
 import axios from "axios";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 function ReelScoutLogo({ className = "w-9 h-9" }) {
   // Instagram-gradient camera glyph — self-contained, no external asset needed.
@@ -72,7 +73,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
     setLoading(true);
     try {
       const response = await axios.post(`${backendUrl}/api/auth/login`, { email, password });
-      toast.success("Welcome to Reel Scout");
+      toast.success(`Welcome to ${BRAND_NAME}`);
       onLogin(response.data.token, response.data.email);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Login failed");
@@ -89,8 +90,8 @@ export default function LandingPage({ onLogin, backendUrl }) {
           <div className="flex items-center gap-2.5">
             <ReelScoutLogo className="w-9 h-9" />
             <div className="leading-tight">
-              <p className="text-base font-bold tracking-tight">Reel Scout</p>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 -mt-0.5">Instagram Reel scraper</p>
+              <p className="text-base font-bold tracking-tight">{BRAND_NAME}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 -mt-0.5">{BRAND_TAGLINE}</p>
             </div>
           </div>
           <Button
@@ -123,7 +124,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
             </h1>
 
             <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl ig-fade-up ig-delay-2">
-              Reel Scout searches by <span className="font-semibold text-slate-900">profile</span>, <span className="font-semibold text-slate-900">direct URL</span>, or <span className="font-semibold text-slate-900">hashtag</span>, pulls every reel with its metadata, and lets you push the good ones to Cloudinary or export a clean CSV — in one flow.
+              {BRAND_NAME} searches by <span className="font-semibold text-slate-900">profile</span>, <span className="font-semibold text-slate-900">direct URL</span>, or <span className="font-semibold text-slate-900">hashtag</span>, pulls every reel with its metadata, and lets you push the good ones to Cloudinary or export a clean CSV — in one flow.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3 ig-fade-up ig-delay-3">
@@ -157,7 +158,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
           <ModeCard
             icon={User}
             title="User profile"
-            description="Enter one or many Instagram handles. Reel Scout pulls their latest reels in one batch."
+            description={`Enter one or many Instagram handles. ${BRAND_NAME} pulls their latest reels in one batch.`}
             example="@nasa, @natgeo, @spacex"
             testId="landing-mode-username"
           />
@@ -171,7 +172,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
           <ModeCard
             icon={Hash}
             title="Hashtag"
-            description="Discover trending reels on a topic. Reel Scout scrapes the hashtag feed and applies your filters."
+            description={`Discover trending reels on a topic. ${BRAND_NAME} scrapes the hashtag feed and applies your filters.`}
             example="#datenight, #travel, #cooking"
             testId="landing-mode-hashtag"
           />
@@ -187,7 +188,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
               <p className="text-xs font-bold uppercase tracking-widest text-pink-300">What you get back</p>
               <h2 className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight">Every reel, every field, ready to move on.</h2>
               <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-xl">
-                Reel Scout returns the full reel object plus tools to act on it — preview inline, upload the winners to Cloudinary, export the whole batch to CSV, or resume any aborted search with one click.
+                {BRAND_NAME} returns the full reel object plus tools to act on it — preview inline, upload the winners to Cloudinary, export the whole batch to CSV, or resume any aborted search with one click.
               </p>
             </div>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-100">
@@ -218,7 +219,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
               className="ig-btn h-12 px-8 rounded-full text-sm font-semibold shrink-0"
               data-testid="landing-cta-signin"
             >
-              Sign in to Reel Scout <ArrowRight className="w-4 h-4 ml-1.5" />
+              Sign in to {BRAND_NAME} <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
           </div>
         </div>
@@ -229,7 +230,7 @@ export default function LandingPage({ onLogin, backendUrl }) {
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <ReelScoutLogo className="w-6 h-6" />
-            <span className="font-semibold text-slate-700">Reel Scout</span>
+            <span className="font-semibold text-slate-700">{BRAND_NAME}</span>
             <span className="text-slate-300">·</span>
             <span>Internal Instagram Reel scraping tool</span>
           </div>

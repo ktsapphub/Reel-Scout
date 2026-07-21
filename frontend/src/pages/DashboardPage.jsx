@@ -13,6 +13,7 @@ import axios from "axios";
 import { format } from "date-fns";
 
 import { safeGet, safeSet } from "@/lib/safeStorage";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { validateInstagramHandle, validateInstagramUrl, validateInstagramPostUrl, MAX_POST_URLS } from "@/lib/instagramValidator";
 import { UploadProgressModal } from "@/components/modals/UploadProgressModal";
 import { ExecutionStatusModal } from "@/components/modals/ExecutionStatusModal";
@@ -509,8 +510,8 @@ export default function DashboardPage({ token, userEmail, onLogout, backendUrl }
                 <Instagram className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Reel Scout</h1>
-              <p className="text-xs text-slate-500">Instagram Reel scraper</p>
+                <h1 className="text-xl font-bold text-slate-900">{BRAND_NAME}</h1>
+              <p className="text-xs text-slate-500">{BRAND_TAGLINE}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

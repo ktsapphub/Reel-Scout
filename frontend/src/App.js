@@ -8,12 +8,18 @@ import HistoryPage from "@/pages/HistoryPage";
 import AuditLogPage from "@/pages/AuditLogPage";
 import SettingsPage from "@/pages/SettingsPage";
 import { safeGet, safeSet, safeRemove } from "@/lib/safeStorage";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 function App() {
   const [token, setToken] = useState(() => safeGet("token"));
   const [userEmail, setUserEmail] = useState(() => safeGet("userEmail"));
+
+  // Keep the browser tab title in sync with the configured brand.
+  useEffect(() => {
+    document.title = `${BRAND_NAME} · ${BRAND_TAGLINE}`;
+  }, []);
 
   // Cross-tab logout sync: if another tab clears the token, drop session here too.
   useEffect(() => {

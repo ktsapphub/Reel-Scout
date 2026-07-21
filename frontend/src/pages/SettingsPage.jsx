@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 import { ConnectionCard } from "@/components/settings/ConnectionCard";
 import { MongoCredentialView } from "@/components/settings/MongoCredentialView";
@@ -582,7 +583,7 @@ export default function SettingsPage({ token, userEmail, backendUrl }) {
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-slate-50 rounded-lg border border-blue-100">
                   <div>
                     <p className="text-lg font-bold text-slate-900">{buildInfo.app_name}</p>
-                    <p className="text-sm text-slate-500">Internal Instagram Reel scraping tool</p>
+                    <p className="text-sm text-slate-500">{BRAND_NAME} · {BRAND_TAGLINE}</p>
                   </div>
                   <div className="text-right">
                     <Badge className="bg-blue-600 text-white text-sm px-3 py-1">v{buildInfo.version}</Badge>

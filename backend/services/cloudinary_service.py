@@ -1,3 +1,4 @@
+import asyncio
 import cloudinary.uploader
 import cloudinary.api
 from datetime import datetime, timezone
@@ -59,6 +60,7 @@ async def _persist_upload_record(reel: dict, secure_url: str, public_id: str, fi
 def _try_recover_existing_asset(public_id: str) -> dict:
     """If a Cloudinary upload throws but the asset is actually present, return its metadata.
     Returns {} if not found / any error during lookup.
+    Sync — callers already offload as needed.
     """
     try:
         full_public_id = f"{CLOUDINARY_FOLDER}/{public_id}"
@@ -91,7 +93,12 @@ async def upload_reel_to_cloudinary(reel: dict, user_email: str) -> dict:
     public_id = _build_public_id(owner, transcript)
 
     try:
-        result = cloudinary.uploader.upload(
+        # cloudinary.uploader.upload is a SYNC blocking call. Wrap in
+        # asyncio.to_thread so the event loop stays responsive and the
+        # Semaphore-bounded gather in upload_reels can actually run
+        # multiple uploads in parallel (previously they serialized).
+        result = await asyncio.to_thread(
+            cloudinary.uploader.upload,
             video_url,
             resource_type="video",
             folder=CLOUDINARY_FOLDER,
@@ -114,8 +121,8 @@ async def upload_reel_to_cloudinary(reel: dict, user_email: str) -> dict:
         }
     except Exception as e:
         logger.error(f"Cloudinary upload error for {public_id}: {e}")
-        # Recovery: maybe the upload actually succeeded but the response failed
-        recovered = _try_recover_existing_asset(public_id)
+        # Recovery probe is also sync-blocking — offload to thread too.
+        recovered = await asyncio.to_thread(_try_recover_existing_asset, public_id)
         if recovered.get("secure_url"):
             logger.info(f"Recovered existing Cloudinary asset for {public_id} after upload exception")
             await _persist_upload_record(
